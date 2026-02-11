@@ -7,7 +7,7 @@ const height = window.innerHeight;
 const scene = new THREE.Scene();
 
 const camera = new THREE.PerspectiveCamera(90, width / height, 0.1, 1000);
-camera.position.z = 2;
+camera.position.z = 1.6;
 
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(width, height);
@@ -27,14 +27,14 @@ const planetShader = new PlanetShader({
 const planetObj = new THREE.Mesh(planetGeometry, planetShader.material);
 scene.add(planetObj);
 
-let lightAngleDegrees = 60.0;
+let lightAngleDegrees = -45.0;
 
 function frame() {
-    lightAngleDegrees += 5.0 / 60.0;
+    lightAngleDegrees += 5.0 / 60.0 * 3.0;
     planetShader.uniforms.lightAngleDegrees.value = lightAngleDegrees;
     planetShader.uniforms.cameraPos.value.copy(camera.position);
 
-    planetObj.rotation.y += 0.001;
+    planetObj.rotation.y += 0.001 * 3.0;
     planetObj.rotation.x = 0.5;
 
     renderer.render(scene, camera);

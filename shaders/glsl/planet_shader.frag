@@ -89,12 +89,21 @@ void main() {
     float nightLights = max(0.0, (0.15 - lightAmount) * 2.0) * 2.0;
     vec3 nightColor = pow(texture2D(nightTex, vUv).rgb, vec3(2.0)) * nightLights * (1.0 - cloudsColor.r);
 
-    vec3 surfaceColor = groundColor + nightColor + specularAmountSurface;
+    float lightAmountRemapped = 1.0 - min(1.0, max(0.0, lightAmount - 0.15) / 0.85);
+    float lightAmountRemapped2 = min(1.0, max(0.0, lightAmount + 0.6) / 1.6);
+
+    vec3 atmosphereColor = mix(vec3(0.8, 0.8, 1.0), vec3(1.0, 0.3, 0.0), pow(lightAmountRemapped, 5.0));
+
+    vec3 surfaceColor = groundColor * atmosphereColor + nightColor + specularAmountSurface;
     vec3 cloudColor = cloudsColor + specularAmountClouds * 5.0;
 
-    vec3 pixelColor = surfaceColor + cloudColor * cloudStrength + vec3(0, 0.5, 1.0) * fresnel;
+    vec3 atmosphereFresnel = vec3(max(0.0, pow(fresnel, 3.0)) * 1000.0 * max(0.0, min(1.0, lightAmountRemapped2)) * 10.0) * atmosphereColor;
+    vec3 atmosphereFresnel2 = vec3(max(0.0, pow(fresnel, 0.5)) * 0.3 * max(0.0, min(1.0, lightAmountRemapped2)) * 10.0) * atmosphereColor;
+
+    vec3 atmosphere = mix(atmosphereFresnel, atmosphereFresnel2, pow(lightAmountRemapped2, 2.0));
+
+    vec3 pixelColor = surfaceColor + cloudColor * cloudStrength + vec3(0, 0.5, 1.0) * fresnel + atmosphere * 1.0;
 
     //gl_FragColor = vec4(terrainNormal, 1.0);
-    //gl_FragColor = vec4(vec3(cloudColor), 1.0);
     gl_FragColor = vec4(tonemapper(pixelColor), 1.0);
 }

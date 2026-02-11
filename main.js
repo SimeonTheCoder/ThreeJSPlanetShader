@@ -30,11 +30,11 @@ scene.add(planetObj);
 let lightAngleDegrees = 60.0;
 
 function frame() {
-    //lightAngleDegrees += 20.0 / 60.0;
+    lightAngleDegrees += 5.0 / 60.0;
     planetShader.uniforms.lightAngleDegrees.value = lightAngleDegrees;
     planetShader.uniforms.cameraPos.value.copy(camera.position);
 
-    planetObj.rotation.y += 0.003;
+    planetObj.rotation.y += 0.001;
     planetObj.rotation.x = 0.5;
 
     renderer.render(scene, camera);

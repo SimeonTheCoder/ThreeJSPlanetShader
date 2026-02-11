@@ -31,13 +31,37 @@ vec3 tonemapper(vec3 color) {
     return color / (vec3(1.0) + color) * 1.5;
 }
 
+vec2 calculateOffset(float radius, vec3 pos, vec3 cameraPos){
+    vec3 slope = normalize(pos - cameraPos);
+
+    float b = 2.0 * dot(cameraPos, slope);
+    float c = dot(cameraPos, cameraPos) - radius*radius;
+    float d = b*b - 4.0*c;
+    float t = (-b + sqrt(d)) / 2.0;
+    vec3 newPoint = cameraPos + slope * t;
+
+    vec2 uvOriginal;
+    uvOriginal.x = (atan(pos.z, pos.x) + 3.14159265) / (2.0 * 3.14159265);
+    uvOriginal.y = (asin(clamp(pos.y, -1.0, 1.0)) + 3.14159265/2.0) / 3.14159265;
+
+    vec2 uvProjected;
+    uvProjected.x = (atan(newPoint.z, newPoint.x) + 3.14159265) / (2.0 * 3.14159265);
+    uvProjected.y = (asin(clamp(newPoint.y, -1.0, 1.0)) + 3.14159265/2.0) / 3.14159265;
+
+    vec2 uvOffset = uvProjected - uvOriginal;
+
+    return uvOffset;
+}
+
+
 void main() {
     vec3 normal = normalize(vertexPos.xyz);
     vec3 normalMap = texture2D(normalMapTex, vUv).rgb * 2.0 - vec3(1.0);
     vec3 terrainNormal = combineNormals(normal, normalMap);
 
     vec3 groundColor = texture2D(surfaceTex, vUv).rgb;
-    vec3 cloudsColor = texture2D(cloudsTex, vUv).rgb;
+
+    vec3 cloudsColor = texture2D(cloudsTex, vUv + calculateOffset(1.2, vertexPos.xyz, cameraPos)).rgb;
 
     vec3 lightDir = calculateLightDir(lightAngleDegrees);
 

@@ -15,7 +15,7 @@ export class PlanetShader {
             specularMapTex: { value: textures.specularMapTex },
             normalMapTex: { value: textures.normalMapTex },
             cameraPos: {value: new THREE.Vector3(0, 0, 0)},
-            normalFactor: {value: 7.0},
+            normalFactor: {value: 10.0},
             cloudStrength: {value: 0.6},
             lightAngleDegrees: {value: 60.0}
         };

@@ -66,6 +66,7 @@ void main() {
     vec3 groundColor = texture2D(surfaceTex, vUv).rgb;
 
     vec3 cloudsColor = texture2D(cloudsTex, vUv + calculateOffset(2.0, vPos.xyz, cameraPos)).rgb;
+    vec3 cloudsShadow = texture2D(cloudsTex, vUv + calculateOffset(1.00, vPos.xyz, cameraPos)).rgb;
 
     vec3 lightDir = calculateLightDir(lightAngleDegrees);
 
@@ -98,7 +99,7 @@ void main() {
 
     vec3 atmosphereColor = mix(vec3(0.8, 0.8, 1.0), vec3(1.0, 0.5, 0.0), pow(lightAmountRemapped, 10.0));
 
-    vec3 surfaceColor = groundColor * atmosphereColor + nightColor + specularAmountSurface;
+    vec3 surfaceColor = groundColor * atmosphereColor + nightColor + specularAmountSurface - cloudsShadow * 0.1;
     vec3 cloudColor = cloudsColor + specularAmountClouds * 5.0;
 
     vec3 atmosphereFresnel = vec3(max(0.0, pow(fresnel, 3.0)) * 3.0 * max(0.0, min(1.0, lightAmountRemapped2)) * 10.0) * atmosphereColor;

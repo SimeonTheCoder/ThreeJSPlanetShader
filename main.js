@@ -53,7 +53,7 @@ function frame() {
     renderer.render(scene, camera);
 }
 
-window.addEventListener('mousemove', (e) => {
+function handleMouse(e) {
     const horizontalInput = ((e.clientX / width) - 0.5) * 2;
     const verticalInput = ((e.clientY / height) - 0.5) * 1.0;
 
@@ -74,4 +74,13 @@ window.addEventListener('mousemove', (e) => {
 
     camera.lookAt(0, 0, 0);
     //camera.rotation.y = -inputAngle;
+}
+
+window.addEventListener('mousemove', handleMouse);
+window.addEventListener('keydown', (e) => {
+    if (e.key == ',') {
+        lightAngleDegrees += 10;
+    } else if (e.key == '.') {
+        lightAngleDegrees -= 10;
+    }
 });

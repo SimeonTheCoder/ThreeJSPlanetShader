@@ -4,9 +4,8 @@ uniform sampler2D specularMapTex;
 uniform sampler2D cloudsTex;
 uniform sampler2D normalMapTex;
 
-uniform vec3 lightDir;
-
 uniform vec3 cameraPos;
+uniform vec3 lightDir;
 
 uniform float normalFactor;
 uniform float cloudStrength;
@@ -60,13 +59,14 @@ vec2 calculateUvSphereOffset(float radius, vec3 pos, vec3 cameraPos){
 }
 
 void main() {
+    vec3 groundColor = texture2D(surfaceTex, vUv).rgb;
+    float currSpecular = texture2D(specularMapTex, vUv).r;
+
     vec3 normal = normalize(vNormal);
     vec3 normalMap = texture2D(normalMapTex, vUv).rgb * 2.0 - vec3(1.0);
     vec3 terrainNormal = combineNormals(normal, normalMap);
 
-    vec3 groundColor = texture2D(surfaceTex, vUv).rgb;
-
-    vec3 cloudsColor = texture2D(cloudsTex, vUv + calculateUvSphereOffset(1.01, vPos.xyz, cameraPos)).rgb;
+    vec3 cloudsColor = texture2D(cloudsTex, vUv + calculateUvSphereOffset(1.003, vPos.xyz, cameraPos)).rgb;
     vec3 cloudsShadow = texture2D(cloudsTex, vUv + calculateUvSphereOffset(1.0, vPos.xyz, cameraPos)).rgb;
 
     float lightAmount = dot(lightDir, normal);
@@ -77,13 +77,10 @@ void main() {
 
     vec3 viewVector = normalize(cameraPos - vPos);
 
-    float currSpecular = texture2D(specularMapTex, vUv).r;
-
     float specularAmountSurface = min(1.0, pow(max(0.0, dot(reflectionDirSurface, viewVector)), 100.0)) * currSpecular;
     float specularAmountClouds = min(1.0, pow(max(0.0, dot(reflectionDir, viewVector)), 20.0)) * currSpecular;
 
-    //float fresnel = (1.0 - pow(dot(viewVector, normal), 0.1)) * 1.0;
-    float fresnel = 0.0;
+    float fresnel = (1.0 - pow(dot(viewVector, normal), 0.1)) * 1.0;
 
     specularAmountSurface = specularAmountSurface * (1.0 - cloudsColor.r);
     specularAmountClouds = specularAmountClouds * cloudsColor.r;
@@ -91,29 +88,18 @@ void main() {
     groundColor = groundColor * vec3(max(lightAmountSurface, 0.0));
     cloudsColor = cloudsColor * vec3(max(lightAmount, 0.0));
 
-    float nightLights = max(0.0, (0.15 - lightAmount) * 2.0) * 2.0;
+    float nightLights = max(0.0, (0.3 - lightAmount) * 2.0) * 2.0;
     vec3 nightColor = pow(texture2D(nightTex, vUv).rgb, vec3(2.0)) * nightLights * (1.0 - cloudsColor.r);
 
-    float lightAmountRemapped = 1.0 - min(1.0, max(0.0, lightAmount - 0.1) / 0.9);
-    float lightAmountRemapped2 = min(1.0, max(0.0, lightAmount + 0.6) / 1.6);
+    float atmosphereDistance = length(calculateOffsetSphereHit(2.0, vPos, vPos + lightDir) - vPos);
+    float atmosphereStrength = clamp(((dot(normal, lightDir) + 1.0) / 2.0 - 0.3) / 0.7, 0.0, 1.0);
+    vec3 atmosphereColor = mix(vec3(1.0, 1.0, 1.0), vec3(0.8, 0.2, 0.0), 1.0 - exp(-4.0 * atmosphereDistance) * 100.0) * atmosphereStrength;
 
-    vec3 atmosphereColor = mix(vec3(0.8, 0.8, 1.0), vec3(1.0, 0.5, 0.0), pow(lightAmountRemapped, 10.0));
-
-    vec3 surfaceColor = groundColor * atmosphereColor + nightColor + specularAmountSurface - cloudsShadow * 0.1;;
+    vec3 surfaceColor = groundColor * atmosphereColor * max(vec3(0.0), (1.0 - cloudsShadow)) + nightColor + (specularAmountSurface * (1.0 - cloudsShadow));
     vec3 cloudColor = cloudsColor + specularAmountClouds * 5.0;
 
-    vec3 atmosphereFresnel = vec3(max(0.0, pow(fresnel, 3.0)) * 3.0 * max(0.0, min(1.0, lightAmountRemapped2)) * 10.0) * atmosphereColor;
-    vec3 atmosphereFresnel2 = vec3(max(0.0, pow(fresnel, 0.5)) * 0.3 * max(0.0, min(1.0, lightAmountRemapped2)) * 10.0) * atmosphereColor;
+    vec3 pixelColor = surfaceColor + cloudColor * cloudStrength + vec3(0, 0.5, 1.0) * fresnel * atmosphereStrength * 2.5 + atmosphereColor * exp(-atmosphereDistance * 4.0) * 20.0;
 
-    vec3 atmosphere = mix(atmosphereFresnel, atmosphereFresnel2, pow(lightAmountRemapped2, 2.0));
-
-    vec3 pixelColor = surfaceColor + cloudColor * cloudStrength + vec3(0, 0.5, 1.0) * fresnel + atmosphere * 1.0;
-    //vec3 pixelColor = surfaceColor + cloudColor * cloudStrength;
-
-    vec3 diff = calculateOffsetSphereHit(1.1, vPos, cameraPos) - vPos;
-    //gl_FragColor = vec4(diff, 1.0);
-
-    //gl_FragColor = vec4(vec3(mix(lightAmount, terminatorCorrection, 0.5) * lightAmount), 1.0);
-    //gl_FragColor = vec4(vec3(atmosphereFresnel), 1.0);
-    gl_FragColor = vec4(tonemapper(pixelColor), 1.0);
+    //gl_FragColor = vec4(terrainNormal, 1.0);
+    gl_FragColor = vec4(tonemapper(pixelColor * 1.0), 1.0);
 }

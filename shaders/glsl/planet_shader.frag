@@ -8,7 +8,6 @@ uniform vec3 lightDir;
 
 uniform vec3 cameraPos;
 
-uniform float lightAngleDegrees;
 uniform float normalFactor;
 uniform float cloudStrength;
 
@@ -29,14 +28,23 @@ vec3 tonemapper(vec3 color) {
     return color / (vec3(1.0) + color) * 1.5;
 }
 
-vec2 calculateOffset(float radius, vec3 pos, vec3 cameraPos){
+vec3 calculateOffsetSphereHit(float radius, vec3 pos, vec3 cameraPos){
     vec3 slope = normalize(pos - cameraPos);
 
     float b = 2.0 * dot(cameraPos, slope);
     float c = dot(cameraPos, cameraPos) - radius*radius;
+    
     float d = b*b - 4.0*c;
-    float t = (-b + sqrt(d)) / 2.0;
+    
+    float t = (-b - sqrt(d)) / 2.0;
+
     vec3 newPoint = cameraPos + slope * t;
+
+    return newPoint;
+}
+
+vec2 calculateUvSphereOffset(float radius, vec3 pos, vec3 cameraPos){
+    vec3 newPoint = calculateOffsetSphereHit(radius, pos, cameraPos);
 
     vec2 uvOriginal;
     uvOriginal.x = (atan(pos.z, pos.x) + 3.14159265) / (2.0 * 3.14159265);
@@ -46,14 +54,10 @@ vec2 calculateOffset(float radius, vec3 pos, vec3 cameraPos){
     uvProjected.x = (atan(newPoint.z, newPoint.x) + 3.14159265) / (2.0 * 3.14159265);
     uvProjected.y = (asin(clamp(newPoint.y, -1.0, 1.0)) + 3.14159265/2.0) / 3.14159265;
 
-    //vec2 uvOffset = 
     vec2 uvOffset = uvProjected - uvOriginal;
-
-    uvOffset = vec2(uvOffset.x /  6.2831853, log(tan(3.14159/4.0 + uvOffset.y)) / radius);
 
     return uvOffset;
 }
-
 
 void main() {
     vec3 normal = normalize(vNormal);
@@ -62,7 +66,8 @@ void main() {
 
     vec3 groundColor = texture2D(surfaceTex, vUv).rgb;
 
-    vec3 cloudsColor = texture2D(cloudsTex, vUv).rgb;
+    vec3 cloudsColor = texture2D(cloudsTex, vUv + calculateUvSphereOffset(1.01, vPos.xyz, cameraPos)).rgb;
+    vec3 cloudsShadow = texture2D(cloudsTex, vUv + calculateUvSphereOffset(1.0, vPos.xyz, cameraPos)).rgb;
 
     float lightAmount = dot(lightDir, normal);
     float lightAmountSurface = dot(lightDir, terrainNormal);
@@ -77,7 +82,8 @@ void main() {
     float specularAmountSurface = min(1.0, pow(max(0.0, dot(reflectionDirSurface, viewVector)), 100.0)) * currSpecular;
     float specularAmountClouds = min(1.0, pow(max(0.0, dot(reflectionDir, viewVector)), 20.0)) * currSpecular;
 
-    float fresnel = (1.0 - pow(dot(viewVector, normal), 0.1)) * 1.0;
+    //float fresnel = (1.0 - pow(dot(viewVector, normal), 0.1)) * 1.0;
+    float fresnel = 0.0;
 
     specularAmountSurface = specularAmountSurface * (1.0 - cloudsColor.r);
     specularAmountClouds = specularAmountClouds * cloudsColor.r;
@@ -93,7 +99,7 @@ void main() {
 
     vec3 atmosphereColor = mix(vec3(0.8, 0.8, 1.0), vec3(1.0, 0.5, 0.0), pow(lightAmountRemapped, 10.0));
 
-    vec3 surfaceColor = groundColor * atmosphereColor + nightColor + specularAmountSurface;
+    vec3 surfaceColor = groundColor * atmosphereColor + nightColor + specularAmountSurface - cloudsShadow * 0.1;;
     vec3 cloudColor = cloudsColor + specularAmountClouds * 5.0;
 
     vec3 atmosphereFresnel = vec3(max(0.0, pow(fresnel, 3.0)) * 3.0 * max(0.0, min(1.0, lightAmountRemapped2)) * 10.0) * atmosphereColor;
@@ -103,6 +109,9 @@ void main() {
 
     vec3 pixelColor = surfaceColor + cloudColor * cloudStrength + vec3(0, 0.5, 1.0) * fresnel + atmosphere * 1.0;
     //vec3 pixelColor = surfaceColor + cloudColor * cloudStrength;
+
+    vec3 diff = calculateOffsetSphereHit(1.1, vPos, cameraPos) - vPos;
+    //gl_FragColor = vec4(diff, 1.0);
 
     //gl_FragColor = vec4(vec3(mix(lightAmount, terminatorCorrection, 0.5) * lightAmount), 1.0);
     //gl_FragColor = vec4(vec3(atmosphereFresnel), 1.0);

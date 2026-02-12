@@ -45,7 +45,6 @@ function frame() {
     planetShader.uniforms.lightDir.value = calculateLightDir();
 
     //lightAngleDegrees += 5.0 / 60.0 * 3.0;
-    planetShader.uniforms.lightAngleDegrees.value = lightAngleDegrees;
     planetShader.uniforms.cameraPos.value.copy(camera.position);
 
     //planetObj.rotation.y += 0.001 * 3.0;

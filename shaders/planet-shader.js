@@ -17,7 +17,6 @@ export class PlanetShader {
             cameraPos: {value: new THREE.Vector3(0, 0, 0)},
             normalFactor: {value: 1.0},
             cloudStrength: {value: 0.6},
-            lightAngleDegrees: {value: 60.0},
             lightDir: {value: new THREE.Vector3(1, 0, 0)}
         };
 

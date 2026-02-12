@@ -15,15 +15,17 @@ export class PlanetShader {
             specularMapTex: { value: textures.specularMapTex },
             normalMapTex: { value: textures.normalMapTex },
             cameraPos: {value: new THREE.Vector3(0, 0, 0)},
-            normalFactor: {value: 10.0},
+            normalFactor: {value: 1.0},
             cloudStrength: {value: 0.6},
-            lightAngleDegrees: {value: 60.0}
+            lightAngleDegrees: {value: 60.0},
+            lightDir: {value: new THREE.Vector3(1, 0, 0)}
         };
 
         this.material = new THREE.ShaderMaterial({
             uniforms: this.uniforms,
             vertexShader: this.vertexShader,
-            fragmentShader: this.fragmentShader
+            fragmentShader: this.fragmentShader,
+            side: THREE.DoubleSide
         });
     }
 }

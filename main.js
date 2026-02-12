@@ -27,17 +27,52 @@ const planetShader = new PlanetShader({
 const planetObj = new THREE.Mesh(planetGeometry, planetShader.material);
 scene.add(planetObj);
 
-let lightAngleDegrees = -45.0;
+let lightAngleDegrees = 45.0;
+
+renderer.setAnimationLoop(frame);
+
+function calculateLightDir() {
+    const lightAngleRadians = lightAngleDegrees / 180.0 * Math.PI;
+    const lightDir = new THREE.Vector3(Math.cos(lightAngleRadians), 0, Math.sin(lightAngleRadians));
+
+    //lightDir.applyMatrix4(camera.matrixWorldInverse); 
+    lightDir.normalize();
+
+    return lightDir;
+}
 
 function frame() {
-    lightAngleDegrees += 5.0 / 60.0 * 3.0;
+    planetShader.uniforms.lightDir.value = calculateLightDir();
+
+    //lightAngleDegrees += 5.0 / 60.0 * 3.0;
     planetShader.uniforms.lightAngleDegrees.value = lightAngleDegrees;
     planetShader.uniforms.cameraPos.value.copy(camera.position);
 
-    planetObj.rotation.y += 0.001 * 3.0;
-    planetObj.rotation.x = 0.5;
+    //planetObj.rotation.y += 0.001 * 3.0;
+    //planetObj.rotation.x = 0.5;
 
     renderer.render(scene, camera);
 }
 
-renderer.setAnimationLoop(frame);
+window.addEventListener('mousemove', (e) => {
+    const horizontalInput = ((e.clientX / width) - 0.5) * 2;
+    const verticalInput = ((e.clientY / height) - 0.5) * 1.0;
+
+    const inputAngleHorizontal = horizontalInput * Math.PI;
+    const inputAngleVertical = verticalInput * Math.PI;
+    
+    const newAngleHorizontal = 1 / 2 * Math.PI + inputAngleHorizontal;
+
+    const orbitDistance = 1.6;
+
+    const camPosX = Math.cos(newAngleHorizontal) * Math.cos(inputAngleVertical) * orbitDistance;
+    const camPosY = Math.sin(inputAngleVertical) * orbitDistance;
+    const camPosZ = Math.sin(newAngleHorizontal) * Math.cos(inputAngleVertical) * orbitDistance;
+
+    camera.position.x = camPosX;
+    camera.position.y = camPosY;
+    camera.position.z = camPosZ;
+
+    camera.lookAt(0, 0, 0);
+    //camera.rotation.y = -inputAngle;
+});

@@ -1,0 +1,9 @@
+{
+	"gas": false,
+	"water": false,
+	"atmosphere": false,
+	"seed": 0,
+	"groundColor": "00ff23",
+	"waterColor": "ff12c5",
+	"atmosphereColor": "a1cd24"
+}

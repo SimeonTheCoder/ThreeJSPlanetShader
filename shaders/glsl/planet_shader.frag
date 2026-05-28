@@ -6,6 +6,7 @@ uniform sampler2D normalMapTex;
 
 uniform vec3 cameraPos;
 uniform vec3 lightDir;
+uniform vec3 planetPos;
 
 uniform float normalFactor;
 uniform float cloudStrength;
@@ -30,8 +31,10 @@ vec3 tonemapper(vec3 color) {
 vec3 calculateOffsetSphereHit(float radius, vec3 pos, vec3 cameraPos){
     vec3 slope = normalize(pos - cameraPos);
 
-    float b = 2.0 * dot(cameraPos, slope);
-    float c = dot(cameraPos, cameraPos) - radius*radius;
+    vec3 oc = cameraPos - planetPos;
+
+    float b = 2.0 * dot(oc, slope);
+    float c = dot(oc, oc) - radius*radius;
     
     float d = b*b - 4.0*c;
     
@@ -58,16 +61,95 @@ vec2 calculateUvSphereOffset(float radius, vec3 pos, vec3 cameraPos){
     return uvOffset;
 }
 
+float random (vec2 st) {
+    return fract(sin(dot(st.xy,
+                         vec2(12.9898,78.233)))*
+        43758.5453123);
+}
+
+vec2 randomGradient (vec2 st) {
+	float angle = random(st) * 6.2831853;
+	return vec2(cos(angle), sin(angle));
+}
+
+float perlinNoise(vec2 uv) {
+	vec2 uvBlock = floor(uv);
+	vec2 f = fract(uv);
+
+	vec2 a = randomGradient(uvBlock);
+	vec2 b = randomGradient(uvBlock + vec2(1, 0));
+	vec2 c = randomGradient(uvBlock + vec2(0, 1));
+	vec2 d = randomGradient(uvBlock + vec2(1, 1));
+
+	vec2 da = f - vec2(0, 0);
+	vec2 db = f - vec2(1, 0);
+	vec2 dc = f - vec2(0, 1);
+	vec2 dd = f - vec2(1, 1);
+
+	float dotA = dot(a, da);
+	float dotB = dot(b, db);
+	float dotC = dot(c, dc);
+	float dotD = dot(d, dd);
+
+	vec2 t = f * f * (3.0 - 2.0 * f);
+
+	float ab = mix(dotA, dotB, t.x);
+	float cd = mix(dotC, dotD, t.x);
+
+	return mix(ab, cd, t.y);
+}
+
+float octaveTriplanarNoise(float scaleMultiplier) {
+    vec3 p = vNormal;
+    vec3 n = normalize(vNormal);
+
+    vec3 w = abs(n);
+    w = w * w;
+    w /= (w.x + w.y + w.z);
+
+    float resultXY = 0.0;
+    float resultYZ = 0.0;
+    float resultXZ = 0.0;
+
+    float amp = 1.0;
+
+    for (int i = 1; i <= 8; i++) {
+        float scale = float(i) * scaleMultiplier;
+
+        resultXY += amp * perlinNoise(p.xy * scale);
+        resultYZ += amp * perlinNoise(p.yz * scale);
+        resultXZ += amp * perlinNoise(p.xz * scale);
+
+        amp *= 0.5;
+    }
+
+	float result = resultXY * w.z + resultYZ * w.x + resultXZ * w.y;
+
+    return result / 2.0 + 0.5;
+}
+
 void main() {
-    vec3 groundColor = texture2D(surfaceTex, vUv).rgb;
-    float currSpecular = texture2D(specularMapTex, vUv).r;
+	float noise = octaveTriplanarNoise(2.0);
+
+	vec3 gColor = mix(vec3(0,1,0), vec3(0.5,0.5,0.5), step(0.5, octaveTriplanarNoise(6.0)));
+
+	vec3 groundColor = mix(vec3(0, 0, 1), gColor, step(0.5, noise));
+    // vec3 groundColor = vec3(octaveTriplanarNoise());
+
+    // vec3 groundColor = texture2D(surfaceTex, vUv).rgb;
+	float currSpecular = 1.0 - step(0.5, noise);
+    // float currSpecular = texture2D(specularMapTex, vUv).r;
 
     vec3 normal = normalize(vNormal);
-    vec3 normalMap = texture2D(normalMapTex, vUv).rgb * 2.0 - vec3(1.0);
-    vec3 terrainNormal = combineNormals(normal, normalMap);
+    // vec3 normalMap = texture2D(normalMapTex, vUv).rgb * 2.0 - vec3(1.0);
+    // vec3 terrainNormal = combineNormals(normal, normalMap);
+	vec3 terrainNormal = normal;
 
-    vec3 cloudsColor = texture2D(cloudsTex, vUv + calculateUvSphereOffset(1.003, vPos.xyz, cameraPos)).rgb;
-    vec3 cloudsShadow = texture2D(cloudsTex, vUv + calculateUvSphereOffset(1.0, vPos.xyz, cameraPos)).rgb;
+    vec3 cloudsColor = vec3(0.0);
+    vec3 cloudsShadow = vec3(0.0);
+
+    // vec3 cloudsColor = texture2D(cloudsTex, vUv + calculateUvSphereOffset(1.003, vPos.xyz, cameraPos)).rgb;
+    // vec3 cloudsShadow = texture2D(cloudsTex, vUv + calculateUvSphereOffset(1.0, vPos.xyz, cameraPos)).rgb;
 
     float lightAmount = dot(lightDir, normal);
     float lightAmountSurface = dot(lightDir, terrainNormal);
@@ -85,11 +167,12 @@ void main() {
     specularAmountSurface = specularAmountSurface * (1.0 - cloudsColor.r);
     specularAmountClouds = specularAmountClouds * cloudsColor.r;
 
-    groundColor = groundColor * vec3(max(lightAmountSurface, 0.0));
+    // groundColor = groundColor * vec3(max(lightAmountSurface, 0.0));
     cloudsColor = cloudsColor * vec3(max(lightAmount, 0.0));
 
     float nightLights = max(0.0, (0.3 - lightAmount) * 2.0) * 2.0;
-    vec3 nightColor = pow(texture2D(nightTex, vUv).rgb, vec3(2.0)) * nightLights * (1.0 - cloudsColor.r);
+    // vec3 nightColor = pow(texture2D(nightTex, vUv).rgb, vec3(2.0)) * nightLights * (1.0 - cloudsColor.r);
+	vec3 nightColor = vec3(0.0);
 
     float atmosphereDistance = length(calculateOffsetSphereHit(2.0, vPos, vPos + lightDir) - vPos);
     float atmosphereStrength = clamp(((dot(normal, lightDir) + 1.0) / 2.0 - 0.3) / 0.7, 0.0, 1.0);
@@ -100,6 +183,6 @@ void main() {
 
     vec3 pixelColor = surfaceColor + cloudColor * cloudStrength + vec3(0, 0.5, 1.0) * fresnel * atmosphereStrength * 2.5 + atmosphereColor * exp(-atmosphereDistance * 4.0) * 20.0;
 
-    //gl_FragColor = vec4(terrainNormal, 1.0);
+    // gl_FragColor = vec4(groundColor, 1.0);
     gl_FragColor = vec4(tonemapper(pixelColor * 1.0), 1.0);
 }

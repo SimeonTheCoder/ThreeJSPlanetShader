@@ -10,7 +10,7 @@ export class PlanetShader {
 			normalMapTex: { value: textures.normalMapTex },
 			cameraPos: { value: new THREE.Vector3(0, 0, 0) },
 			normalFactor: { value: 1.0 },
-			cloudStrength: { value: 0.6 },
+			cloudStrength: { value: 0.75 },
 			lightDir: { value: new THREE.Vector3(1, 0, 0) },
 			planetPos: { value: new THREE.Vector3(0, 0, 0) },
 		};

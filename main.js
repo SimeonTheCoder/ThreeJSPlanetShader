@@ -7,7 +7,9 @@ const height = window.innerHeight;
 const scene = new THREE.Scene();
 
 const camera = new THREE.PerspectiveCamera(90, width / height, 0.1, 1000);
-camera.position.z = 1.6;
+
+const orbitDistance = 1.6;
+camera.position.z = orbitDistance;
 
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(width, height);
@@ -76,8 +78,6 @@ function handleMouse(e) {
 	const inputAngleVertical = verticalInput * Math.PI;
 
 	const newAngleHorizontal = (1 / 2) * Math.PI + inputAngleHorizontal;
-
-	const orbitDistance = 1.6;
 
 	const camPosX =
 		Math.cos(newAngleHorizontal) *

@@ -99,26 +99,29 @@ float perlinNoise(vec2 uv) {
 	return mix(ab, cd, t.y);
 }
 
+float octavePerlin(vec2 uv) {
+    float result = 0.0;
+
+    float amp = 1.0;
+
+    for (int i = 1; i <= 8; i++) {
+        float scale = float(i);
+        result += amp * perlinNoise(uv * scale);
+
+        amp *= 0.5;
+    }
+
+    return result;
+}
+
 float octaveTriplanarNoise(float scaleMultiplier, vec3 p, vec3 n) {
     vec3 w = abs(n);
     w = w * w;
     w /= (w.x + w.y + w.z);
 
-    float resultXY = 0.0;
-    float resultYZ = 0.0;
-    float resultXZ = 0.0;
-
-    float amp = 1.0;
-
-    for (int i = 1; i <= 8; i++) {
-        float scale = float(i) * scaleMultiplier;
-
-        resultXY += amp * perlinNoise(p.xy * scale);
-        resultYZ += amp * perlinNoise(p.yz * scale);
-        resultXZ += amp * perlinNoise(p.xz * scale);
-
-        amp *= 0.5;
-    }
+    float resultXY = octavePerlin(p.xy * scaleMultiplier);
+    float resultYZ = octavePerlin(p.yz * scaleMultiplier);
+    float resultXZ = octavePerlin(p.xz * scaleMultiplier);
 
 	float result = resultXY * w.z + resultYZ * w.x + resultXZ * w.y;
 
@@ -131,33 +134,46 @@ float contrast(float v) {
 }
 
 float h(float i) {
-    return 5.0 * pow(i - 0.5, 2.0) + 0.5;
+    return 100.0 * pow(i - 0.5, 2.0) + 0.5;
 }
 
 void main() {
-	float noise = octaveTriplanarNoise(4.0, vPos, vNormal);
+	float noise = octaveTriplanarNoise(4.0, vPos, vNormal) + octavePerlin(vUv * 100.0) * 0.05;
 
     float poles = min(1.0, max(0.0, pow(abs(dot(vec3(0, 1.0, 0), vPos)), 2.0)));
     poles = clamp((poles - 0.5) * (1.0 / 0.5), 0.0, 1.0);
 
     float threshold = 0.5 - clamp(poles - 0.3, 0.0, 1.0) * 0.5;
 
-    float height = h(octaveTriplanarNoise(6.0, vPos, vNormal));
-    float heightL = h(octaveTriplanarNoise(6.0, vPos + vec3(-0.01, 0, 0), vNormal + vec3(-0.01, 0, 0)));
-    float heightU = h(octaveTriplanarNoise(6.0, vPos + vec3(0, -0.01, 0), vNormal + vec3(0, -0.01, 0)));
-
-    height = step(threshold, height) * height;
-    heightL = step(threshold, heightL) * heightL;
-    heightU = step(threshold, heightU) * heightU;
-
-    float dx = (height - heightL) / 2.0 + 0.5;
-    float dy = (height - heightU) / 2.0 + 0.5;
+    float height = octaveTriplanarNoise(6.0, vPos, vNormal);
 
 	vec3 gColor = mix(vec3(0,1,0), vec3(0.5,0.5,0.5), height);
     gColor = mix(gColor, vec3(1, 0.8, 0.3), clamp(contrast(1.0 - noise * 2.0 + 0.53) - poles, 0.0, 1.0));
     gColor = mix(vec3(1.0), gColor, clamp(1.0 - step(threshold - 1.0, height) + (1.0 - poles * 2.0), 0.0, 1.0));
 
-    vec3 waterColor = mix(vec3(0.3, 1.0, 1.0), vec3(0, 0.4, 0.7), max(0.0, min(1.0, contrast(1.7 - noise * 3.0)))) * (1.0 - step(threshold, noise));
+    float delta = -0.01;
+
+    float heightL = octaveTriplanarNoise(6.0, vPos + vec3(delta, 0, 0), vNormal + vec3(delta, 0, 0));
+    float heightU = octaveTriplanarNoise(6.0, vPos + vec3(0, delta, 0), vNormal + vec3(0, delta, 0));
+
+    float waterNoise = perlinNoise(vUv * 1000.0);
+    float waterNoiseL = perlinNoise(vUv * 1000.0 + vec2(delta * 10.0, 0));
+    float waterNoiseU = perlinNoise(vUv * 1000.0 + vec2(0, delta * 10.0));
+
+    height = step(threshold, noise) * h(height) + (1.0 - step(threshold, noise)) * waterNoise;
+    heightL = step(threshold, noise) * h(heightL) + (1.0 - step(threshold, noise)) * waterNoiseL;
+    heightU = step(threshold, noise) * h(heightU) + (1.0 - step(threshold, noise)) * waterNoiseU;
+
+    float dx = (height - heightL);
+    float dy = (height - heightU);
+
+    vec3 normalMap = normalize(vec3(dx, dy, 1.0)) * 1.0;
+
+    float misalignmentFactor = length(normalMap - vec3(0.0, 0.0, 1.0));
+    gColor = mix(vec3(0.5, 0.4, 0.3), gColor, 1.0 - step(0.5, misalignmentFactor));
+    gColor = mix(gColor, vec3(1.0), step(5.0, height));
+
+    vec3 waterColor = mix(vec3(0.3, 1.0, 1.0), vec3(0, 0.4, 0.7), max(0.0, min(1.0, contrast(1.7 - noise * 3.0)))) * (1.0 - step(threshold, noise)) * 1.5;
 
 	vec3 groundColor = mix(waterColor, gColor, step(threshold, noise));
     // vec3 groundColor = vec3(octaveTriplanarNoise());
@@ -167,14 +183,15 @@ void main() {
     // float currSpecular = texture2D(specularMapTex, vUv).r;
 
     vec3 normal = normalize(vNormal);
+
     // vec3 normalMap = texture2D(normalMapTex, vUv).rgb * 2.0 - vec3(1.0);
-    // vec3 terrainNormal = combineNormals(normal, normalMap);
-	vec3 terrainNormal = normal;
+    vec3 terrainNormal = combineNormals(normal, normalMap);
+	// vec3 terrainNormal = normal;
 
     float cloudNoise1 = octaveTriplanarNoise(4.0, vPos + vec3(10.0, 0.0, 0.0), vNormal);
     float cloudNoise2 = octaveTriplanarNoise(4.0, vPos + vec3(10.0, 0.0, 0.0), vNormal);
 
-    vec3 cloudsColor = vec3(contrast(contrast(max(0.0, perlinNoise((vUv + vec2(cloudNoise1, cloudNoise2) * 0.1) * 20.0) / 2.0 + 0.35))));
+    vec3 cloudsColor = vec3(contrast(contrast(max(0.0, octavePerlin((vUv + vec2(cloudNoise1, cloudNoise2) * 0.1) * 20.0) / 2.0 + 0.4)))) + octavePerlin(vUv * 100.0) * 0.1;
     vec3 cloudsShadow = cloudsColor;
 
     // vec3 cloudsColor = texture2D(cloudsTex, vUv + calculateUvSphereOffset(1.003, vPos.xyz, cameraPos)).rgb;
@@ -191,12 +208,12 @@ void main() {
     float specularAmountSurface = min(1.0, pow(max(0.0, dot(reflectionDirSurface, viewVector)), 100.0)) * currSpecular;
     float specularAmountClouds = min(1.0, pow(max(0.0, dot(reflectionDir, viewVector)), 20.0)) * currSpecular;
 
-    float fresnel = (1.0 - pow(dot(viewVector, normal), 0.1)) * 1.0;
+    float fresnel = (1.0 - pow(dot(viewVector, normal), 0.1)) * 2.0;
 
     specularAmountSurface = specularAmountSurface * (1.0 - cloudsColor.r);
     specularAmountClouds = specularAmountClouds * cloudsColor.r * 0.0;
 
-    // groundColor = groundColor * vec3(max(lightAmountSurface, 0.0));
+    groundColor = groundColor * vec3(max(lightAmountSurface, 0.0));
     cloudsColor = cloudsColor * vec3(max(lightAmount, 0.0));
 
     float nightLights = max(0.0, (0.3 - lightAmount) * 2.0) * 2.0;
@@ -216,7 +233,8 @@ void main() {
     pixelColor = max(vec3(0.0), pixelColor);
     // vec3 pixelColor = surfaceColor;
 
-    gl_FragColor = vec4(vec2(dx, dy), 0.0, 1.0);
+    // gl_FragColor = vec4(vec3(step(3.0, height)), 1.0);
+    // gl_FragColor = vec4(normalMap, 1.0);
     // gl_FragColor = vec4(surfaceColor, 1.0);
-    // gl_FragColor = vec4(tonemapper(pixelColor * 1.0), 1.0);
+    gl_FragColor = vec4(tonemapper(pixelColor * 1.0), 1.0);
 }

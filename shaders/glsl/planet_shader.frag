@@ -137,22 +137,10 @@ float h(float i) {
     return 100.0 * pow(i - 0.5, 2.0) + 0.5;
 }
 
-void main() {
-	float noise = octaveTriplanarNoise(4.0, vPos, vNormal) + octavePerlin(vUv * 100.0) * 0.05;
-
-    float poles = min(1.0, max(0.0, pow(abs(dot(vec3(0, 1.0, 0), vPos)), 2.0)));
-    poles = clamp((poles - 0.5) * (1.0 / 0.5), 0.0, 1.0);
-
-    float threshold = 0.5 - clamp(poles - 0.3, 0.0, 1.0) * 0.5;
-
-    float height = octaveTriplanarNoise(6.0, vPos, vNormal);
-
-	vec3 gColor = mix(vec3(0,1,0), vec3(0.5,0.5,0.5), height);
-    gColor = mix(gColor, vec3(1, 0.8, 0.3), clamp(contrast(1.0 - noise * 2.0 + 0.53) - poles, 0.0, 1.0));
-    gColor = mix(vec3(1.0), gColor, clamp(1.0 - step(threshold - 1.0, height) + (1.0 - poles * 2.0), 0.0, 1.0));
-
+vec3 generateTerrainNormals(float noise, float threshold, vec3 normal) {
     float delta = -0.01;
 
+    float height = octaveTriplanarNoise(6.0, vPos, vNormal);
     float heightL = octaveTriplanarNoise(6.0, vPos + vec3(delta, 0, 0), vNormal + vec3(delta, 0, 0));
     float heightU = octaveTriplanarNoise(6.0, vPos + vec3(0, delta, 0), vNormal + vec3(0, delta, 0));
 
@@ -167,74 +155,85 @@ void main() {
     float dx = (height - heightL);
     float dy = (height - heightU);
 
-    vec3 normalMap = normalize(vec3(dx, dy, 1.0)) * 1.0;
+    return normalize(vec3(dx, dy, 1.0));
+}
 
-    float misalignmentFactor = length(normalMap - vec3(0.0, 0.0, 1.0));
-    gColor = mix(vec3(0.5, 0.4, 0.3), gColor, 1.0 - step(0.5, misalignmentFactor));
-    gColor = mix(gColor, vec3(1.0), step(5.0, height));
+vec3 generateGroundColor(float height, float noise, float threshold, float poles, float steepness) {
+    vec3 gColor = mix(vec3(0,1,0), vec3(0.5,0.5,0.5), height);
+    gColor = mix(gColor, vec3(1, 0.8, 0.3), clamp(contrast(1.0 - noise * 2.0 + 0.53) - poles, 0.0, 1.0));
+    gColor = mix(vec3(1.0), gColor, clamp(1.0 - step(threshold - 1.0, height) + (1.0 - poles * 2.0), 0.0, 1.0));
 
-    vec3 waterColor = mix(vec3(0.3, 1.0, 1.0), vec3(0, 0.4, 0.7), max(0.0, min(1.0, contrast(1.7 - noise * 3.0)))) * (1.0 - step(threshold, noise)) * 1.5;
+    gColor = mix(vec3(0.5, 0.4, 0.3), gColor, 1.0 - step(0.5, steepness));
+    gColor = mix(gColor, vec3(1.0), step(5.0, h(height)));
 
-	vec3 groundColor = mix(waterColor, gColor, step(threshold, noise));
-    // vec3 groundColor = vec3(octaveTriplanarNoise());
+    return gColor;
+}
 
-    // vec3 groundColor = texture2D(surfaceTex, vUv).rgb;
-	float currSpecular = 1.0 - step(threshold, noise) + poles;
-    // float currSpecular = texture2D(specularMapTex, vUv).r;
-
-    vec3 normal = normalize(vNormal);
-
-    // vec3 normalMap = texture2D(normalMapTex, vUv).rgb * 2.0 - vec3(1.0);
-    vec3 terrainNormal = combineNormals(normal, normalMap);
-	// vec3 terrainNormal = normal;
-
+float generateClouds() {
     float cloudNoise1 = octaveTriplanarNoise(4.0, vPos + vec3(10.0, 0.0, 0.0), vNormal);
     float cloudNoise2 = octaveTriplanarNoise(4.0, vPos + vec3(10.0, 0.0, 0.0), vNormal);
 
-    vec3 cloudsColor = vec3(contrast(contrast(max(0.0, octavePerlin((vUv + vec2(cloudNoise1, cloudNoise2) * 0.1) * 20.0) / 2.0 + 0.4)))) + octavePerlin(vUv * 100.0) * 0.1;
-    vec3 cloudsShadow = cloudsColor;
+    return contrast(contrast(max(0.0, octavePerlin((vUv + vec2(cloudNoise1, cloudNoise2) * 0.1) * 20.0) / 2.0 + 0.4))) + octavePerlin(vUv * 100.0) * 0.1;
+}
 
-    // vec3 cloudsColor = texture2D(cloudsTex, vUv + calculateUvSphereOffset(1.003, vPos.xyz, cameraPos)).rgb;
-    // vec3 cloudsShadow = texture2D(cloudsTex, vUv + calculateUvSphereOffset(1.0, vPos.xyz, cameraPos)).rgb;
-
-    float lightAmount = dot(lightDir, normal);
-    float lightAmountSurface = dot(lightDir, terrainNormal);
-
-    vec3 reflectionDirSurface = normalize(2.0 * dot(terrainNormal, lightDir.xyz) * normal - lightDir.xyz);
-    vec3 reflectionDir = normalize(2.0 * dot(normal, lightDir.xyz) * normal - lightDir.xyz);
-
-    vec3 viewVector = normalize(cameraPos - vPos);
-
-    float specularAmountSurface = min(1.0, pow(max(0.0, dot(reflectionDirSurface, viewVector)), 100.0)) * currSpecular;
-    float specularAmountClouds = min(1.0, pow(max(0.0, dot(reflectionDir, viewVector)), 20.0)) * currSpecular;
-
-    float fresnel = (1.0 - pow(dot(viewVector, normal), 0.1)) * 2.0;
-
-    specularAmountSurface = specularAmountSurface * (1.0 - cloudsColor.r);
-    specularAmountClouds = specularAmountClouds * cloudsColor.r * 0.0;
-
-    groundColor = groundColor * vec3(max(lightAmountSurface, 0.0));
-    cloudsColor = cloudsColor * vec3(max(lightAmount, 0.0));
-
-    float nightLights = max(0.0, (0.3 - lightAmount) * 2.0) * 2.0;
-    // vec3 nightColor = pow(texture2D(nightTex, vUv).rgb, vec3(2.0)) * nightLights * (1.0 - cloudsColor.r);
-	vec3 nightColor = vec3(0.0);
-
+vec3 applyAtmosphere(vec3 groundColor, vec3 cloudColor, vec3 viewVector) {
     float atmosphereDistance = length(calculateOffsetSphereHit(2.0, vPos, vPos + lightDir) - vPos);
-    float atmosphereStrength = clamp(((dot(normal, lightDir) + 1.0) / 2.0 - 0.3) / 0.7, 0.0, 1.0);
+    float atmosphereScattered = exp(-atmosphereDistance * 4.0);
+
+    float atmosphereStrength = clamp(((dot(vNormal, lightDir) + 1.0) / 2.0 - 0.3) / 0.7, 0.0, 1.0);
+
     vec3 atmosphereColor = mix(vec3(1.0, 1.0, 1.0), vec3(0.8, 0.2, 0.0), clamp(1.0 - exp(-4.0 * atmosphereDistance) * 100.0, 0.0, 1.0)) * atmosphereStrength;
-
-    vec3 surfaceColor = groundColor * atmosphereColor + nightColor + (specularAmountSurface);
+    vec3 surfaceColor = groundColor * atmosphereColor;
     
-    // vec3 surfaceColor = groundColor * atmosphereColor * max(vec3(0.0), (1.0 - cloudsShadow)) + nightColor + (specularAmountSurface * (1.0 - cloudsShadow));
-    vec3 cloudColor = cloudsColor + specularAmountClouds * 5.0;
+    float fresnel = (1.0 - pow(dot(viewVector, vNormal), 0.1)) * 2.0;
 
-    vec3 pixelColor = surfaceColor + cloudColor * cloudStrength + vec3(0, 0.5, 1.0) * fresnel * atmosphereStrength * 2.5 + atmosphereColor * exp(-atmosphereDistance * 4.0) * 20.0;
-    pixelColor = max(vec3(0.0), pixelColor);
-    // vec3 pixelColor = surfaceColor;
+    vec3 pixelColor = surfaceColor + cloudColor * cloudStrength + vec3(0, 0.5, 1.0) * fresnel * atmosphereStrength * 2.5 + atmosphereColor * atmosphereScattered * 20.0;
+    return max(pixelColor, vec3(0.0));
+}
 
-    // gl_FragColor = vec4(vec3(step(3.0, height)), 1.0);
-    // gl_FragColor = vec4(normalMap, 1.0);
-    // gl_FragColor = vec4(surfaceColor, 1.0);
-    gl_FragColor = vec4(tonemapper(pixelColor * 1.0), 1.0);
+vec3 applyLighting(vec3 color, vec3 normal, float specular, vec3 viewVector) {
+    float lightAmount = max(dot(lightDir, normal), 0.0);
+
+    vec3 reflectionDir = normalize(2.0 * dot(normal, lightDir.xyz) * vNormal - lightDir.xyz);
+    float specularAmount = min(1.0, pow(max(0.0, dot(reflectionDir, viewVector)), 100.0)) * specular;
+
+    return color * lightAmount + specularAmount;
+}
+
+void main() {
+    //Noise
+	float noise = octaveTriplanarNoise(4.0, vPos, vNormal) + octavePerlin(vUv * 100.0) * 0.05;
+    float clouds = generateClouds();
+
+    float poles = min(1.0, max(0.0, pow(abs(dot(vec3(0, 1.0, 0), vPos)), 2.0)));
+    poles = clamp((poles - 0.5) * (1.0 / 0.5), 0.0, 1.0);
+
+    float threshold = 0.5 - clamp(poles - 0.3, 0.0, 1.0) * 0.5;
+
+    //Normals
+    float height = octaveTriplanarNoise(6.0, vPos, vNormal);
+
+    vec3 normalMap = generateTerrainNormals(noise, threshold, vNormal);
+    float steepness = length(normalMap - vec3(0.0, 0.0, 1.0));
+
+    vec3 terrainNormal = combineNormals(vNormal, normalMap);
+
+    //Albedo
+    vec3 gColor = generateGroundColor(height, noise, threshold, poles, steepness);
+    vec3 waterColor = mix(vec3(0.3, 1.0, 1.0), vec3(0, 0.4, 0.7), max(0.0, min(1.0, contrast(1.7 - noise * 3.0)))) * (1.0 - step(threshold, noise)) * 1.5;
+	vec3 groundColor = mix(waterColor, gColor, step(threshold, noise));
+
+    //Lighting
+    vec3 viewVector = normalize(cameraPos - vPos);
+	float currSpecular = 1.0 - step(threshold, noise) + poles;
+
+    groundColor = applyLighting(groundColor, terrainNormal, currSpecular, viewVector);
+    vec3 cloudsColor = applyLighting(vec3(clouds), vNormal, currSpecular * clouds, viewVector);
+
+    //Atmosphere
+    vec3 pixelColor = applyAtmosphere(groundColor, cloudsColor, viewVector);
+
+    //Tonemapping
+    float exposure = 1.0;
+    gl_FragColor = vec4(tonemapper(pixelColor * exposure), 1.0);
 }

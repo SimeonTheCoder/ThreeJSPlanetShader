@@ -168,7 +168,7 @@ vec3 applyAtmosphere(vec3 groundColor, vec3 cloudColor, vec3 viewVector) {
     
     float fresnel = (1.0 - pow(dot(viewVector, vNormal), 0.1)) * 2.0;
 
-    vec3 pixelColor = surfaceColor + cloudColor * cloudStrength * random(vec2(SEED, 17.0)) + vec3(0, 0.5, 1.0) * fresnel * atmosphereStrength * 2.5 + atmosphereColor * atmosphereScattered * 20.0;
+    vec3 pixelColor = surfaceColor + cloudColor * cloudStrength * random(vec2(SEED, 17.0)) + ATMOSPHERE_COLOR * fresnel * atmosphereStrength * 2.5 + atmosphereColor * atmosphereScattered * 20.0;
     return max(pixelColor, vec3(0.0));
 }
 

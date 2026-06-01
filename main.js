@@ -162,5 +162,11 @@ window.addEventListener('keydown', async (e) => {
 		// u.perlinNoiseTex.value = convertArrToTexture(
 		// 	generatePerlinNoiseTexture(1024, 1024),
 		// );
+
+		planetShader.uniforms.lightDir.value = calculateLightDir();
+		planetShader.uniforms.planetPos.value.copy(planetObj.position);
+
+		//lightAngleDegrees += 5.0 / 60.0 * 3.0;
+		planetShader.uniforms.cameraPos.value.copy(camera.position);
 	}
 });

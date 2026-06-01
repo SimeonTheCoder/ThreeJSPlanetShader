@@ -112,7 +112,7 @@ float contrast(float v) {
 }
 
 float h(float i) {
-    float featureScale = mix(50.0, 1000.0, random(vec2(SEED, 5.0)));
+    float featureScale = mix(50.0, 1000.0, pow(random(vec2(SEED, 5.0)), 3.0));
     return featureScale * pow(i - 0.45, 2.0) + 0.5;
 }
 
@@ -166,7 +166,8 @@ vec3 applyAtmosphere(vec3 groundColor, vec3 cloudColor, vec3 viewVector) {
 
     vec3 surfaceColor = groundColor * atmosphereColor;
     
-    float fresnel = (1.0 - pow(dot(viewVector, vNormal), 0.1)) * 2.0;
+    float atmosphereThickness = mix(1.0, 5.0, pow(random(vec2(SEED, 19.0)), 3.0)) * (isGasGiant ? 2.5 : 1.0);
+    float fresnel = (1.0 - pow(dot(lightDir, vNormal) * 0.5 + 0.5, 0.1)) * atmosphereThickness * 0.5 + (1.0 - pow(dot(viewVector, vNormal), 0.1)) * atmosphereThickness * 0.5;
 
     vec3 pixelColor = surfaceColor + cloudColor * cloudStrength * random(vec2(SEED, 17.0)) + ATMOSPHERE_COLOR * fresnel * atmosphereStrength * 2.5 + atmosphereColor * atmosphereScattered * 20.0;
     return max(pixelColor, vec3(0.0));

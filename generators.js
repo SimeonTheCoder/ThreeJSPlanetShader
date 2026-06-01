@@ -97,14 +97,6 @@ export function generatePerlinNoiseTexture(sizeX, sizeY) {
 		gradient.push(currRow);
 	}
 
-	// for (let x = 0; x < gradient[0].length; x++)
-	// 	gradient[0][x] = gradient[gradient.length - 1][x];
-
-	// for (let y = 0; y < gradient.length; y++)
-	// 	gradient[y][0] = gradient[y][gradient[0].length - 1];
-
-	console.log(gradient);
-
 	for (let y = 0; y < sizeY; y++) {
 		const currRow = [];
 

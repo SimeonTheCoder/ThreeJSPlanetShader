@@ -49,6 +49,10 @@ function convertArrToTexture(data2D) {
 	return texture;
 }
 
+const noiseTexture = convertArrToTexture(
+	generatePerlinNoiseTexture(1024, 1024),
+);
+
 const planetShader = await new PlanetShader({
 	surfaceTex: new THREE.TextureLoader().load(
 		'./textures/8k_earth_daymap.jpg',
@@ -63,7 +67,7 @@ const planetShader = await new PlanetShader({
 	normalMapTex: new THREE.TextureLoader().load(
 		'./textures/8k_earth_normal_map.jpg',
 	),
-	perlinNoiseTex: convertArrToTexture(generatePerlinNoiseTexture(1024, 1024)),
+	perlinNoiseTex: noiseTexture,
 }).init();
 
 const planetObj = new THREE.Mesh(planetGeometry, planetShader.material);
@@ -130,10 +134,33 @@ function handleMouse(e) {
 }
 
 window.addEventListener('mousemove', handleMouse);
-window.addEventListener('keydown', (e) => {
+window.addEventListener('keydown', async (e) => {
 	if (e.key == ',') {
 		lightAngleDegrees += 10;
 	} else if (e.key == '.') {
 		lightAngleDegrees -= 10;
+	}
+
+	if (e.key == 'r') {
+		const u = planetShader.uniforms;
+
+		u.hasWater.value = Math.random() > 0.3;
+		u.hasAtmosphere.value = Math.random() > 0.2;
+		u.isGasGiant.value = Math.random() > 0.8;
+
+		u.GROUND_COLOR.value.set(Math.random(), Math.random(), Math.random());
+		u.WATER_COLOR.value.set(Math.random(), Math.random(), Math.random());
+		u.ATMOSPHERE_COLOR.value.set(
+			Math.random(),
+			Math.random(),
+			Math.random(),
+		);
+		u.CLOUD_COLOR.value.set(Math.random(), Math.random(), Math.random());
+
+		u.SEED.value = Math.random() * 999;
+
+		// u.perlinNoiseTex.value = convertArrToTexture(
+		// 	generatePerlinNoiseTexture(1024, 1024),
+		// );
 	}
 });

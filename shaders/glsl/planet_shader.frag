@@ -85,11 +85,11 @@ vec2 randomGradient (vec2 st) {
 }
 
 float perlinNoise(vec2 uv) {
-    return 2.0 * (texture(perlinNoiseTex, uv / 50.0 + vec2(SEED)).r - 0.5);
+    return 2.0 * (texture(perlinNoiseTex, uv / 50.0 + vec2(SEED * 0.1, SEED * 0.5)).r - 0.5);
 }
 
 float octavePerlin(vec2 uv) {
-    return 2.0 * (texture(perlinNoiseTex, uv / 50.0 + vec2(SEED)).r - 0.5);
+    return perlinNoise(uv);
 }
 
 float octaveTriplanarNoise(float scaleMultiplier, vec3 p, vec3 n) {
@@ -97,9 +97,9 @@ float octaveTriplanarNoise(float scaleMultiplier, vec3 p, vec3 n) {
     w = w * w;
     w /= (w.x + w.y + w.z);
 
-    float resultXY = texture(perlinNoiseTex, p.xy * scaleMultiplier / 50.0 + vec2(SEED)).r;
-    float resultYZ = texture(perlinNoiseTex, p.yz * scaleMultiplier / 50.0 + vec2(SEED, 1980.0)).r;
-    float resultXZ = texture(perlinNoiseTex, p.xz * scaleMultiplier / 50.0 + vec2(0.0, -SEED)).r;
+    float resultXY = texture(perlinNoiseTex, p.xy * scaleMultiplier / 50.0 + vec2(SEED * 0.2)).r;
+    float resultYZ = texture(perlinNoiseTex, p.yz * scaleMultiplier / 50.0 + vec2(SEED * 0.2, 1980.0)).r;
+    float resultXZ = texture(perlinNoiseTex, p.xz * scaleMultiplier / 50.0 + vec2(0.0, -SEED * 0.1)).r;
 
 	float result = resultXY * w.z + resultYZ * w.x + resultXZ * w.y;
 

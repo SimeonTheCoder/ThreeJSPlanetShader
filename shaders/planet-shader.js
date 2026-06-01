@@ -8,6 +8,7 @@ export class PlanetShader {
 			nightTex: { value: textures.nightTex },
 			specularMapTex: { value: textures.specularMapTex },
 			normalMapTex: { value: textures.normalMapTex },
+			perlinNoiseTex: { value: textures.perlinNoiseTex },
 			cameraPos: { value: new THREE.Vector3(0, 0, 0) },
 			normalFactor: { value: 1.0 },
 			cloudStrength: { value: 0.75 },

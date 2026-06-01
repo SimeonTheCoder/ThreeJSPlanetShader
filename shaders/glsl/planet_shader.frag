@@ -3,6 +3,7 @@ uniform sampler2D nightTex;
 uniform sampler2D specularMapTex;
 uniform sampler2D cloudsTex;
 uniform sampler2D normalMapTex;
+uniform sampler2D perlinNoiseTex;
 
 uniform vec3 cameraPos;
 uniform vec3 lightDir;
@@ -73,45 +74,11 @@ vec2 randomGradient (vec2 st) {
 }
 
 float perlinNoise(vec2 uv) {
-	vec2 uvBlock = floor(uv);
-	vec2 f = fract(uv);
-
-	vec2 a = randomGradient(uvBlock);
-	vec2 b = randomGradient(uvBlock + vec2(1, 0));
-	vec2 c = randomGradient(uvBlock + vec2(0, 1));
-	vec2 d = randomGradient(uvBlock + vec2(1, 1));
-
-	vec2 da = f - vec2(0, 0);
-	vec2 db = f - vec2(1, 0);
-	vec2 dc = f - vec2(0, 1);
-	vec2 dd = f - vec2(1, 1);
-
-	float dotA = dot(a, da);
-	float dotB = dot(b, db);
-	float dotC = dot(c, dc);
-	float dotD = dot(d, dd);
-
-	vec2 t = f * f * (3.0 - 2.0 * f);
-
-	float ab = mix(dotA, dotB, t.x);
-	float cd = mix(dotC, dotD, t.x);
-
-	return mix(ab, cd, t.y);
+    return 2.0 * (texture(perlinNoiseTex, uv / 50.0).r - 0.5);
 }
 
 float octavePerlin(vec2 uv) {
-    float result = 0.0;
-
-    float amp = 1.0;
-
-    for (int i = 1; i <= 8; i++) {
-        float scale = float(i);
-        result += amp * perlinNoise(uv * scale);
-
-        amp *= 0.5;
-    }
-
-    return result;
+    return 2.0 * (texture(perlinNoiseTex, uv / 50.0).r - 0.5);
 }
 
 float octaveTriplanarNoise(float scaleMultiplier, vec3 p, vec3 n) {
@@ -119,13 +86,13 @@ float octaveTriplanarNoise(float scaleMultiplier, vec3 p, vec3 n) {
     w = w * w;
     w /= (w.x + w.y + w.z);
 
-    float resultXY = octavePerlin(p.xy * scaleMultiplier);
-    float resultYZ = octavePerlin(p.yz * scaleMultiplier);
-    float resultXZ = octavePerlin(p.xz * scaleMultiplier);
+    float resultXY = texture(perlinNoiseTex, p.xy * scaleMultiplier / 50.0).r;
+    float resultYZ = texture(perlinNoiseTex, p.yz * scaleMultiplier / 50.0).r;
+    float resultXZ = texture(perlinNoiseTex, p.xz * scaleMultiplier / 50.0).r;
 
 	float result = resultXY * w.z + resultYZ * w.x + resultXZ * w.y;
 
-    return max(0.0, min(1.0, result / 2.0 + 0.5));
+    return max(0.0, min(1.0, result));
 }
 
 float contrast(float v) {
@@ -134,7 +101,7 @@ float contrast(float v) {
 }
 
 float h(float i) {
-    return 100.0 * pow(i - 0.5, 2.0) + 0.5;
+    return 500.0 * pow(i - 0.45, 2.0) + 0.5;
 }
 
 vec3 generateTerrainNormals(float noise, float threshold, vec3 normal) {
@@ -144,9 +111,9 @@ vec3 generateTerrainNormals(float noise, float threshold, vec3 normal) {
     float heightL = octaveTriplanarNoise(6.0, vPos + vec3(delta, 0, 0), vNormal + vec3(delta, 0, 0));
     float heightU = octaveTriplanarNoise(6.0, vPos + vec3(0, delta, 0), vNormal + vec3(0, delta, 0));
 
-    float waterNoise = perlinNoise(vUv * 1000.0);
-    float waterNoiseL = perlinNoise(vUv * 1000.0 + vec2(delta * 10.0, 0));
-    float waterNoiseU = perlinNoise(vUv * 1000.0 + vec2(0, delta * 10.0));
+    float waterNoise = perlinNoise(vUv * 200.0) * 2.0;
+    float waterNoiseL = perlinNoise(vUv * 200.0 + vec2(delta * 10.0, 0)) * 2.0;
+    float waterNoiseU = perlinNoise(vUv * 200.0 + vec2(0, delta * 10.0)) * 2.0;
 
     height = step(threshold, noise) * h(height) + (1.0 - step(threshold, noise)) * waterNoise;
     heightL = step(threshold, noise) * h(heightL) + (1.0 - step(threshold, noise)) * waterNoiseL;
@@ -173,7 +140,7 @@ float generateClouds() {
     float cloudNoise1 = octaveTriplanarNoise(4.0, vPos + vec3(10.0, 0.0, 0.0), vNormal);
     float cloudNoise2 = octaveTriplanarNoise(4.0, vPos + vec3(10.0, 0.0, 0.0), vNormal);
 
-    return contrast(contrast(max(0.0, octavePerlin((vUv + vec2(cloudNoise1, cloudNoise2) * 0.1) * 20.0) / 2.0 + 0.4))) + octavePerlin(vUv * 100.0) * 0.1;
+    return contrast(contrast(max(0.0, octavePerlin((vUv + vec2(cloudNoise1, cloudNoise2) * 0.5) * 20.0) / 2.0 + 0.4))) + octavePerlin(vUv * 100.0) * 0.1;
 }
 
 vec3 applyAtmosphere(vec3 groundColor, vec3 cloudColor, vec3 viewVector) {
@@ -202,13 +169,13 @@ vec3 applyLighting(vec3 color, vec3 normal, float specular, vec3 viewVector) {
 
 void main() {
     //Noise
-	float noise = octaveTriplanarNoise(4.0, vPos, vNormal) + octavePerlin(vUv * 100.0) * 0.05;
-    float clouds = generateClouds();
+	float noise = octaveTriplanarNoise(4.0, vPos, vNormal) + octavePerlin(vUv * 10.0) * 0.05 * 1.0;
+    float clouds = contrast(contrast(generateClouds() + 0.3));
 
     float poles = min(1.0, max(0.0, pow(abs(dot(vec3(0, 1.0, 0), vPos)), 2.0)));
     poles = clamp((poles - 0.5) * (1.0 / 0.5), 0.0, 1.0);
 
-    float threshold = 0.5 - clamp(poles - 0.3, 0.0, 1.0) * 0.5;
+    float threshold = 0.515 - clamp(poles - 0.3, 0.0, 1.0) * 0.5;
 
     //Normals
     float height = octaveTriplanarNoise(6.0, vPos, vNormal);
@@ -235,5 +202,8 @@ void main() {
 
     //Tonemapping
     float exposure = 1.0;
+    // gl_FragColor = vec4(normalMap, 1.0);
+    // gl_FragColor = vec4(gColor, 1.0);
+    // gl_FragColor = vec4(vec3(texture2D(perlinNoiseTex, vUv).r), 1.0);
     gl_FragColor = vec4(tonemapper(pixelColor * exposure), 1.0);
 }

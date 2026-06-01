@@ -1,5 +1,6 @@
 import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
 import { PlanetShader } from './shaders/planet-shader.js';
+import { generatePerlinNoiseTexture } from './generators.js';
 
 const width = window.innerWidth;
 const height = window.innerHeight;
@@ -18,6 +19,36 @@ document.body.appendChild(renderer.domElement);
 
 const planetGeometry = new THREE.SphereGeometry(1, 128, 128);
 
+function convertArrToTexture(data2D) {
+	const width = data2D[0].length;
+	const height = data2D.length;
+
+	const data = new Uint8Array(width * height); // RGB
+
+	let index = 0;
+
+	for (let y = 0; y < height; y++) {
+		for (let x = 0; x < width; x++) {
+			const value = data2D[y][x] * 255;
+
+			data[index++] = value; // R
+			// data[index++] = value; // G
+			// data[index++] = value; // B
+		}
+	}
+
+	const texture = new THREE.DataTexture(data, width, height, THREE.RedFormat);
+
+	texture.minFilter = THREE.LinearFilter;
+	texture.magFilter = THREE.LinearFilter;
+	texture.wrapS = THREE.RepeatWrapping;
+	texture.wrapT = THREE.RepeatWrapping;
+	texture.generateMipmaps = false;
+
+	texture.needsUpdate = true;
+	return texture;
+}
+
 const planetShader = await new PlanetShader({
 	surfaceTex: new THREE.TextureLoader().load(
 		'./textures/8k_earth_daymap.jpg',
@@ -32,6 +63,7 @@ const planetShader = await new PlanetShader({
 	normalMapTex: new THREE.TextureLoader().load(
 		'./textures/8k_earth_normal_map.jpg',
 	),
+	perlinNoiseTex: convertArrToTexture(generatePerlinNoiseTexture(1024, 1024)),
 }).init();
 
 const planetObj = new THREE.Mesh(planetGeometry, planetShader.material);

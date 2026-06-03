@@ -152,7 +152,7 @@ float generateClouds(vec2 uv) {
     float cloudNoise1 = octaveTriplanarNoise(4.0, vPos + vec3(10.0, 0.0, 0.0), vNormal);
     float cloudNoise2 = octaveTriplanarNoise(4.0, vPos + vec3(10.0, 0.0, 0.0), vNormal);
 
-    return contrast(contrast(max(0.0, octavePerlin((uv + vec2(cloudNoise1, cloudNoise2) * 0.5) * 20.0) / 2.0 + 0.4))) + octavePerlin(uv * 100.0) * 0.1;
+    return max(0.0, contrast(contrast(max(0.0, octavePerlin((uv + vec2(cloudNoise1, cloudNoise2) * 0.5) * 20.0) / 2.0 + 0.4))) + octavePerlin(uv * 100.0) * 0.1);
 }
 
 vec3 applyAtmosphere(vec3 groundColor, vec3 cloudColor, vec3 viewVector) {
@@ -166,20 +166,22 @@ vec3 applyAtmosphere(vec3 groundColor, vec3 cloudColor, vec3 viewVector) {
 
     vec3 surfaceColor = groundColor * atmosphereColor;
     
-    float atmosphereThickness = mix(1.0, 5.0, pow(random(vec2(SEED, 19.0)), 3.0)) * (isGasGiant ? 2.5 : 1.0);
+    float atmosphereThickness = mix(1.0, 5.0, pow(random(vec2(SEED, 19.0)), 3.0)) * (isGasGiant ? 1.5 : 1.0);
     float fresnel = (1.0 - pow(dot(lightDir, vNormal) * 0.5 + 0.5, 0.1)) * atmosphereThickness * 0.5 + (1.0 - pow(dot(viewVector, vNormal), 0.1)) * atmosphereThickness * 0.5;
 
     vec3 pixelColor = surfaceColor + cloudColor * cloudStrength * random(vec2(SEED, 17.0)) + ATMOSPHERE_COLOR * fresnel * atmosphereStrength * 2.5 + atmosphereColor * atmosphereScattered * 20.0;
     return max(pixelColor, vec3(0.0));
 }
 
-vec3 applyLighting(vec3 color, vec3 normal, float specular, vec3 viewVector) {
-    float lightAmount = max(dot(lightDir, normal), 0.0);
-
+vec3 applySpecular(vec3 color, vec3 normal, float specular, vec3 viewVector, float power) {
     vec3 reflectionDir = normalize(2.0 * dot(normal, lightDir.xyz) * vNormal - lightDir.xyz);
-    float specularAmount = min(1.0, pow(max(0.0, dot(reflectionDir, viewVector)), 100.0)) * specular;
+    float specularAmount = min(1.0, pow(max(0.0, dot(reflectionDir, viewVector)), power)) * specular;
+    return color + vec3(specularAmount);
+}
 
-    return color * lightAmount + specularAmount;
+vec3 applyLighting(vec3 color, vec3 normal) {
+    float lightAmount = max(dot(lightDir, normal), 0.0);
+    return color * lightAmount;
 }
 
 vec3 genericPlanet() {
@@ -188,7 +190,7 @@ vec3 genericPlanet() {
 
     //Noise
 	float noise = octaveTriplanarNoise(4.0, vPos, vNormal) + octavePerlin(vUv * 10.0) * 0.05 * fineScaleDetail;
-    float clouds = contrast(contrast(generateClouds(vUv) + cloudiness));
+    float clouds = max(0.0, generateClouds(vUv) * 2.0 + cloudiness);
     if (!hasWater) clouds = 0.0;
 
     float poles = min(1.0, max(0.0, pow(abs(dot(vec3(0, 1.0, 0), vPos)), 2.0)));
@@ -216,10 +218,11 @@ vec3 genericPlanet() {
     vec3 viewVector = normalize(cameraPos - vPos);
 	float currSpecular = 1.0 - step(threshold, noise) + poles;
 
-    groundColor = applyLighting(groundColor, terrainNormal, currSpecular, viewVector);
-    vec3 cloudsColor = applyLighting(vec3(clouds), vNormal, currSpecular * clouds, viewVector);
+    groundColor = applyLighting(groundColor, terrainNormal);
+    vec3 cloudsColor = applySpecular(applyLighting(vec3(clouds), vNormal), vNormal, clouds, viewVector, 5.0);
 
-    return hasAtmosphere ? applyAtmosphere(groundColor, cloudsColor, viewVector) : groundColor;
+    vec3 resultColor = hasAtmosphere ? applyAtmosphere(groundColor, cloudsColor, viewVector) : groundColor;
+    return applySpecular(resultColor, terrainNormal, currSpecular * max(0.0, 1.0 - clouds), viewVector, 50.0);
 }
 
 vec3 gasGiant() {
@@ -233,12 +236,14 @@ vec3 gasGiant() {
 
     //Lighting
     vec3 viewVector = normalize(cameraPos - vPos);
-	float currSpecular = clouds;
+	float currSpecular = clouds * 0.2;
 
-    vec3 cloudsColor = applyLighting(vec3(clouds), vNormal, currSpecular * clouds, viewVector);
+    vec3 cloudsColor = applyLighting(vec3(clouds), vNormal);
     cloudsColor *= CLOUD_COLOR;
 
-    return applyAtmosphere(mix(GROUND_COLOR, WATER_COLOR * vec3(0.5, 0.5, 0.5), perlinNoise(vUv * vec2(5.0, 30.0))), cloudsColor, viewVector);
+    vec3 resultColor = applyAtmosphere(mix(GROUND_COLOR, WATER_COLOR * vec3(0.5, 0.5, 0.5), perlinNoise(vUv * vec2(5.0, 30.0))), cloudsColor, viewVector);
+
+    return applySpecular(resultColor, vNormal, currSpecular * clouds, viewVector, 5.0);
 }
 
 void main() {

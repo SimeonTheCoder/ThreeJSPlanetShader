@@ -21,7 +21,42 @@ function sampleGradient(floor, gradient, period) {
 	return gradient[y][x];
 }
 
-function perlin(uv, gradient, scale) {
+function perlin(uv, scale) {
+	const floor = new THREE.Vector2(Math.floor(uv.x), Math.floor(uv.y));
+	const fract = new THREE.Vector2(uv.x - floor.x, uv.y - floor.y);
+
+	// console.log(floor);
+
+	// if (floor.x >= scale * 5 - 1) floor.x = 0;
+	// if (floor.y >= scale * 5 - 1) floor.y = 0;
+
+	const a = randomGradient(floor);
+	const b = randomGradient(new THREE.Vector2(floor.x + 1, floor.y));
+	const c = randomGradient(new THREE.Vector2(floor.x, floor.y + 1));
+	const d = randomGradient(new THREE.Vector2(floor.x + 1, floor.y + 1));
+
+	const da = fract.clone();
+	const db = fract.clone().add(new THREE.Vector2(-1, 0));
+	const dc = fract.clone().add(new THREE.Vector2(0, -1));
+	const dd = fract.clone().add(new THREE.Vector2(-1, -1));
+
+	const u = new THREE.Vector2(
+		fract.x * fract.x * (3 - 2 * fract.x),
+		fract.y * fract.y * (3 - 2 * fract.y),
+	);
+
+	const dotA = a.dot(da);
+	const dotB = b.dot(db);
+	const dotC = c.dot(dc);
+	const dotD = d.dot(dd);
+
+	const ab = lerp(dotA, dotB, u.x);
+	const cd = lerp(dotC, dotD, u.x);
+
+	return lerp(ab, cd, u.y) / 2 + 0.5;
+}
+
+function perlinGrad(uv, gradient, scale) {
 	const floor = new THREE.Vector2(Math.floor(uv.x), Math.floor(uv.y));
 	const fract = new THREE.Vector2(uv.x - floor.x, uv.y - floor.y);
 
@@ -68,18 +103,89 @@ function perlin(uv, gradient, scale) {
 	return lerp(ab, cd, u.y) / 2 + 0.5;
 }
 
-function octaveNoise(uv, gradient) {
+function octaveNoiseGrad(uv, gradient) {
 	let result = 0;
 	let multiplier = 1;
 
 	for (let i = 1; i <= 8; i++) {
 		result +=
-			perlin(uv.clone().multiplyScalar(2 ** i), gradient, 2 ** i) *
+			perlinGrad(uv.clone().multiplyScalar(2 ** i), gradient, 2 ** i) *
 			multiplier;
 		multiplier /= 2;
 	}
 
 	return result / 2;
+}
+
+export function octaveNoise(uv) {
+	let result = 0;
+	let multiplier = 1;
+
+	for (let i = 1; i <= 8; i++) {
+		result +=
+			perlin(uv.clone().multiplyScalar(2 ** i), 2 ** i) * multiplier;
+		multiplier /= 2;
+	}
+
+	return result / 2;
+}
+
+function convertArrToTexture(data2D) {
+	const width = data2D[0].length;
+	const height = data2D.length;
+
+	const data = new Uint8Array(width * height); // RGB
+
+	let index = 0;
+
+	for (let y = 0; y < height; y++) {
+		for (let x = 0; x < width; x++) {
+			const value = data2D[y][x] * 255;
+
+			data[index++] = value; // R
+			// data[index++] = value; // G
+			// data[index++] = value; // B
+		}
+	}
+
+	const texture = new THREE.DataTexture(data, width, height, THREE.RedFormat);
+
+	texture.minFilter = THREE.LinearFilter;
+	texture.magFilter = THREE.LinearFilter;
+	texture.wrapS = THREE.RepeatWrapping;
+	texture.wrapT = THREE.RepeatWrapping;
+	texture.generateMipmaps = false;
+
+	const canvas = document.createElement('canvas');
+	canvas.width = width;
+	canvas.height = height;
+
+	const ctx = canvas.getContext('2d');
+
+	const rgbaData = new Uint8ClampedArray(width * height * 4);
+
+	for (let i = 0; i < width * height; i++) {
+		const value = data[i];
+
+		rgbaData[i * 4 + 0] = value;
+		rgbaData[i * 4 + 1] = value;
+		rgbaData[i * 4 + 2] = value;
+		rgbaData[i * 4 + 3] = 255;
+	}
+
+	const imageData = new ImageData(rgbaData, width, height);
+
+	ctx.putImageData(imageData, 0, 0);
+
+	canvas.toBlob((blob) => {
+		const a = document.createElement('a');
+		a.href = URL.createObjectURL(blob);
+		a.download = 'texture.png';
+		a.click();
+	});
+
+	texture.needsUpdate = true;
+	return texture;
 }
 
 export function generatePerlinNoiseTexture(sizeX, sizeY) {
@@ -101,7 +207,7 @@ export function generatePerlinNoiseTexture(sizeX, sizeY) {
 		const currRow = [];
 
 		for (let x = 0; x < sizeX; x++) {
-			const v = octaveNoise(
+			const v = octaveNoiseGrad(
 				new THREE.Vector2((x / sizeX) * 10.0, (y / sizeY) * 10.0),
 				gradient,
 			);
@@ -111,7 +217,7 @@ export function generatePerlinNoiseTexture(sizeX, sizeY) {
 		texture.push(currRow);
 	}
 
-	return texture;
+	return convertArrToTexture(texture);
 }
 
 // function generateVoronoiTexture(sizeX, sizeY) {

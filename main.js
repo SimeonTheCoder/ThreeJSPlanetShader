@@ -17,6 +17,15 @@ const renderer = new THREE.WebGLRenderer();
 renderer.setSize(width, height);
 
 const controls = new OrbitControls(camera, renderer.domElement);
+configureControls();
+
+function configureControls() {
+	controls.autoRotate = true;
+	controls.autoRotateSpeed = 0.5;
+	controls.enableDamping = true;
+	controls.enablePan = false;
+	controls.enableZoom = false;
+}
 
 document.body.appendChild(renderer.domElement);
 

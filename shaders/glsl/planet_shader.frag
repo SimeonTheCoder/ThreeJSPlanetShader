@@ -7,6 +7,8 @@ uniform vec3 planetPos;
 uniform float normalFactor;
 uniform float cloudStrength;
 
+uniform float time;
+
 uniform bool hasWater;
 uniform bool hasAtmosphere;
 uniform bool isGasGiant;
@@ -31,8 +33,20 @@ vec3 combineNormals(vec3 normal, vec3 sampledNormal) {
     return normalize(mix(normal, combined, normalFactor));
 }
 
+//Narkowicz ACES
+
+vec3 aces(vec3 x) {
+  const float a = 2.51;
+  const float b = 0.03;
+  const float c = 2.43;
+  const float d = 0.59;
+  const float e = 0.14;
+  return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
+}
+
 vec3 tonemapper(vec3 color) {
-    return color / (vec3(1.0) + color) * 1.5;
+    return aces(color);
+    // return color / (vec3(1.0) + color) * 1.5;
 }
 
 vec3 calculateOffsetSphereHit(float radius, vec3 pos, vec3 cameraPos){
@@ -144,10 +158,10 @@ vec3 generateGroundColor(float height, float noise, float threshold, float poles
 }
 
 float generateClouds(vec2 uv) {
-    float cloudNoise1 = octaveTriplanarNoise(4.0, vPos + vec3(10.0, 0.0, 0.0), vNormal);
-    float cloudNoise2 = octaveTriplanarNoise(4.0, vPos + vec3(10.0, 0.0, 0.0), vNormal);
+    float cloudNoise1 = octaveTriplanarNoise(4.0, vPos + vec3(10.0, 0.0, 0.0) + time * 0.001, vNormal);
+    float cloudNoise2 = octaveTriplanarNoise(4.0, vPos + vec3(10.0, 0.0, 0.0) + time * 0.001, vNormal);
 
-    return max(0.0, contrast(contrast(max(0.0, octavePerlin((uv + vec2(cloudNoise1, cloudNoise2) * 0.5) * 20.0) / 2.0 + 0.4))) + octavePerlin(uv * 100.0) * 0.1);
+    return max(0.0, contrast(contrast(max(0.0, octavePerlin((uv + vec2(cloudNoise1, cloudNoise2) * 0.5 + time * 0.001) * 20.0) / 2.0 + 0.4))) + octavePerlin(uv * 100.0) * 0.1);
 }
 
 vec3 applyAtmosphere(vec3 groundColor, vec3 cloudColor, vec3 viewVector) {
@@ -217,6 +231,7 @@ vec3 genericPlanet() {
     vec3 cloudsColor = applySpecular(applyLighting(vec3(clouds), vNormal), vNormal, clouds, viewVector, 5.0);
 
     vec3 resultColor = hasAtmosphere ? applyAtmosphere(groundColor, cloudsColor, viewVector) : groundColor;
+    // return vec3(time / 1300);
     return applySpecular(resultColor, terrainNormal, currSpecular * max(0.0, 1.0 - clouds), viewVector, 50.0);
 }
 
@@ -244,6 +259,6 @@ vec3 gasGiant() {
 void main() {
     vec3 pixelColor = isGasGiant ? gasGiant() : genericPlanet();
 
-    float exposure = 1.0;
+    float exposure = 0.5;
     gl_FragColor = vec4(tonemapper(pixelColor * exposure), 1.0);
 }

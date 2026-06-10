@@ -83,14 +83,18 @@ function calculateLightDir() {
 	return lightDir;
 }
 
+const clock = new THREE.Clock();
+
 function frame() {
 	planetShader.uniforms.lightDir.value = calculateLightDir();
 	planetShader.uniforms.planetPos.value.copy(planetObj.position);
 
-	//lightAngleDegrees += 5.0 / 60.0 * 3.0;
+	lightAngleDegrees += clock.getDelta() * 5;
 	planetShader.uniforms.cameraPos.value.copy(camera.position);
 
-	//planetObj.rotation.y += 0.001 * 3.0;
+	planetShader.uniforms.time.value = clock.getElapsedTime();
+
+	// planetObj.rotation.y += 0.001 * 3.0;
 	//planetObj.rotation.x = 0.5;
 
 	controls.update();

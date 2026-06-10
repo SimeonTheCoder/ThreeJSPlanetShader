@@ -12,6 +12,7 @@ export class PlanetShader {
 			hasWater: { value: Math.random() > 0.3 },
 			hasAtmosphere: { value: Math.random() > 0.2 },
 			isGasGiant: { value: Math.random() > 0.8 },
+			time: { value: 0 },
 			// GROUND_COLOR: { value: new THREE.Vector3(0.0, 1.0, 0.0) },
 			// WATER_COLOR: { value: new THREE.Vector3(0.0, 0.5, 1.0) },
 			// ATMOSPHERE_COLOR: { value: new THREE.Vector3(0.85, 0.85, 1.0) },

@@ -57,19 +57,6 @@ const noiseTexture = convertArrToTexture(
 );
 
 const planetShader = await new PlanetShader({
-	surfaceTex: new THREE.TextureLoader().load(
-		'./textures/8k_earth_daymap.jpg',
-	),
-	cloudsTex: new THREE.TextureLoader().load('./textures/8k_earth_clouds.jpg'),
-	nightTex: new THREE.TextureLoader().load(
-		'./textures/8k_earth_nightmap.jpg',
-	),
-	specularMapTex: new THREE.TextureLoader().load(
-		'./textures/8k_earth_specular_map.jpg',
-	),
-	normalMapTex: new THREE.TextureLoader().load(
-		'./textures/8k_earth_normal_map.jpg',
-	),
 	perlinNoiseTex: noiseTexture,
 }).init();
 

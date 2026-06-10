@@ -1,8 +1,3 @@
-uniform sampler2D surfaceTex;
-uniform sampler2D nightTex;
-uniform sampler2D specularMapTex;
-uniform sampler2D cloudsTex;
-uniform sampler2D normalMapTex;
 uniform sampler2D perlinNoiseTex;
 
 uniform vec3 cameraPos;

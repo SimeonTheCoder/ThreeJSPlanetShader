@@ -3,11 +3,6 @@ import * as THREE from 'three';
 export class PlanetShader {
 	constructor(textures) {
 		this.uniforms = {
-			surfaceTex: { value: textures.surfaceTex },
-			cloudsTex: { value: textures.cloudsTex },
-			nightTex: { value: textures.nightTex },
-			specularMapTex: { value: textures.specularMapTex },
-			normalMapTex: { value: textures.normalMapTex },
 			perlinNoiseTex: { value: textures.perlinNoiseTex },
 			cameraPos: { value: new THREE.Vector3(0, 0, 0) },
 			normalFactor: { value: 1.0 },

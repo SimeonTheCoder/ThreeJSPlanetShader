@@ -1,4 +1,5 @@
-import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
+import * as THREE from 'three';
+import { OrbitControls } from 'https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js';
 import { PlanetShader } from './shaders/planet-shader.js';
 import { generatePerlinNoiseTexture } from './generators.js';
 
@@ -14,6 +15,8 @@ camera.position.z = orbitDistance;
 
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(width, height);
+
+const controls = new OrbitControls(camera, renderer.domElement);
 
 document.body.appendChild(renderer.domElement);
 
@@ -103,37 +106,11 @@ function frame() {
 	//planetObj.rotation.y += 0.001 * 3.0;
 	//planetObj.rotation.x = 0.5;
 
+	controls.update();
+
 	renderer.render(scene, camera);
 }
 
-function handleMouse(e) {
-	const horizontalInput = (e.clientX / width - 0.5) * 2;
-	const verticalInput = (e.clientY / height - 0.5) * 1.0;
-
-	const inputAngleHorizontal = horizontalInput * Math.PI;
-	const inputAngleVertical = verticalInput * Math.PI;
-
-	const newAngleHorizontal = (1 / 2) * Math.PI + inputAngleHorizontal;
-
-	const camPosX =
-		Math.cos(newAngleHorizontal) *
-		Math.cos(inputAngleVertical) *
-		orbitDistance;
-	const camPosY = Math.sin(inputAngleVertical) * orbitDistance;
-	const camPosZ =
-		Math.sin(newAngleHorizontal) *
-		Math.cos(inputAngleVertical) *
-		orbitDistance;
-
-	camera.position.x = camPosX;
-	camera.position.y = camPosY;
-	camera.position.z = camPosZ;
-
-	camera.lookAt(0, 0, 0);
-	//camera.rotation.y = -inputAngle;
-}
-
-window.addEventListener('mousemove', handleMouse);
 window.addEventListener('keydown', async (e) => {
 	if (e.key == ',') {
 		lightAngleDegrees += 10;

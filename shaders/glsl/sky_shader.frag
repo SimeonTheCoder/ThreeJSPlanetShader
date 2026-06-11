@@ -11,10 +11,13 @@ uniform bool hasAtmosphere;
 uniform vec3 GROUND_COLOR;
 
 uniform float SEED;
+uniform float time;
 
 varying vec2 vUv;
 varying vec3 vNormal;
 varying vec3 vPos;
+
+float cloudSpeed = 0.001;
 
 //Narkowicz ACES
 
@@ -63,10 +66,10 @@ float h(float i) {
 }
 
 float generateClouds(vec2 uv) {
-    float cloudNoise1 = octavePerlin(4.0 * vUv + vec2(10.0, 0.0));
-    float cloudNoise2 = octavePerlin(4.0 * vUv + vec2(10.0, 0.0));
+    float cloudNoise1 = octavePerlin(1.0 * vUv + vec2(10.0, 0.0) + time * cloudSpeed / 1000.0);
+    float cloudNoise2 = octavePerlin(1.0 * vUv + vec2(10.0, 0.0) + time * cloudSpeed / 1000.0);
 
-    return max(0.0, contrast(contrast(max(0.0, octavePerlin((uv + vec2(cloudNoise1, cloudNoise2) * 0.5) * 20.0) / 2.0 + 0.4))) + octavePerlin(uv * 100.0) * 0.1);
+    return max(0.0, contrast(contrast(max(0.0, octavePerlin((uv + vec2(cloudNoise1, cloudNoise2) * 0.5 + time * cloudSpeed) * 20.0) / 2.0 + 0.4))) + octavePerlin(uv * 100.0) * 0.1);
 }
 
 float calculateStar(vec3 pos) {
@@ -77,6 +80,69 @@ float calculateStar(vec3 pos) {
 }
 
 void main() {
+    float cloudinessBias = -0.0;
+
+    vec3 stereographicProjection = vNormal / vNormal.y  - vec3(0.0, 1.0, 0.0);
+    vec2 newUv = stereographicProjection.xz;
+
+    float clouds = 0.0;
+    float mask = 0.0;
+
+    const int cloudLayers = 1000;
+
+    float visibleLayer = -1.0;
+    const float stepSize = 1.0 / float(cloudLayers) * 10.0;
+
+    for (int i = 0; i < 50; i ++) {
+        float currRatio = float(i) * stepSize;
+
+        float planeHeight = 1.0 + currRatio * currRatio * currRatio * 8.0;
+
+        float cloudWidth = pow((1.0 - pow(1.0 - currRatio, 2.0)) * 1.5 - 0.7, 2.0) * 2.0 + max(0.0, min(1.0, perlinNoise(newUv * 2.0 + planeHeight * 1.0))) * 3.0;
+
+        vec3 currProjection = vNormal / vNormal.y * planeHeight;
+        vec2 currUv = currProjection.xz;
+
+        // float curr = max(0.0, generateClouds(currUv * 0.03) - 0.1);
+        float curr = generateClouds(currUv * 0.1) * 0.2 + generateClouds(currUv * 0.3) * 0.1 + generateClouds(currUv * 0.05) * 0.5;
+
+        float currMask = step(cloudWidth + cloudinessBias, curr);
+        float currContribution = currRatio * currRatio;
+
+        clouds += step(0.99, 1.0 - clouds) * currMask * currContribution;
+        mask += step(0.99, 1.0 - mask) * currMask;
+
+        if (visibleLayer < 0.0 && currMask > 0.5) visibleLayer = currRatio;
+    }
+
+    clouds = max(0.0, min(1.0, clouds)) * 5.0;
+    clouds = mix(clouds, 1.0, 0.3);
+
+    mask = max(0.0, min(1.0, mask));
+
+    float haze = max(0.0, dot(vNormal, vec3(0.0, 1.0, 0.0)));
+    float day = max(0.0, dot(lightDir, vec3(0.0, 1.0, 0.0)));
+    float sun = pow(max(0.0, dot(vNormal, lightDir)), 5.0);
+
+    float cloudDepth = (1.0 - visibleLayer) * mask;
+    cloudDepth = 1.0 * mask - (exp(pow(cloudDepth, 4.0)) - 1.0) / 1.8;
+    clouds = mix(clouds, clouds * 5.0 * cloudDepth, sun);
+
+    float sunShape = pow(max(0.0, dot(vNormal, lightDir)), 1000.0);
+    float sunShapeFinal = min(1.0, step(0.8, sunShape) + sunShape * day);
+
+    float moonShape = pow(max(0.0, dot(vNormal, -lightDir)), 1000.0) * 1.0;
+    float moonShapeFinal = min(1.0, step(0.8, moonShape) + moonShape * (1.0 - day) * 0.2);
+
+    float longDay = max(0.0, (dot(lightDir, vec3(0.0, 1.0, 0.0)) + 1.0) / 2.0);
+
+    float sunsetMask = sun * (1.0 - haze) * (1.0 - day) * 1.0;
+    vec3 sunsetColor = mix(vec3(1.0, 0.5, 0.2), vec3(1.0, 0.1, 0.0), pow(min(1.0, max(0.0, (0.2 - day) * 5.0)), 2.0));
+
+    vec3 dayColor = mix(mix(vec3(1.0, 0.4, 0.4), vec3(0.2, 0.4, 1.0), day), vec3(0.6, 0.6, 1.0), haze) * longDay * 1.5;
+    vec3 skyColor = mix(dayColor, sunsetColor, sunsetMask);
+    vec3 sunColor = mix(vec3(1.0, 1.0, 1.0), vec3(1.0, 0.3, 0.1), clamp(sunsetMask, 0.0, 1.0));
+
     float stars = 0.0;
 
     for (int i = 0; i < 200; i ++) {
@@ -88,26 +154,11 @@ void main() {
         stars += calculateStar(pos * vec3(-1.0, 1.0, -1.0));
     }
 
-    float haze = max(0.0, dot(vNormal, vec3(0.0, 1.0, 0.0)));
-    float day = max(0.0, dot(lightDir, vec3(0.0, 1.0, 0.0)));
-    float sun = pow(max(0.0, dot(vNormal, lightDir)), 5.0);
-
-    float sunShape = pow(max(0.0, dot(vNormal, lightDir)), 1000.0);
-    float sunShapeFinal = min(1.0, step(0.8, sunShape) + sunShape * day);
-
-    float longDay = max(0.0, (dot(lightDir, vec3(0.0, 1.0, 0.0)) + 1.0) / 2.0);
-
-    float sunsetMask = sun * (1.0 - haze) * (1.0 - day) * 1.0;
-    vec3 sunsetColor = mix(vec3(1.0, 0.5, 0.2), vec3(1.0, 0.1, 0.0), pow(min(1.0, max(0.0, (0.2 - day) * 5.0)), 2.0));
-
-    vec3 pixelColor = mix(mix(vec3(1.0, 0.4, 0.4), vec3(0.2, 0.4, 1.0), day), vec3(0.6, 0.6, 1.0), haze) * longDay * 1.5;
-    // vec3 pixelColor = vec3(0.0);
-
     float starsTerm = pow(1.0 - longDay, 2.0) * stars;
-    pixelColor = mix(pixelColor, sunsetColor, sunsetMask) + sunShapeFinal * mix(vec3(1.0, 1.0, 1.0), vec3(1.0, 0.3, 0.1), clamp(sunsetMask, 0.0, 1.0)) + starsTerm;
+    vec3 pixelColor = skyColor + sunShapeFinal * sunColor + moonShapeFinal + starsTerm;
+
+    pixelColor = mix(pixelColor, vec3(clouds) * skyColor, mask);
 
     float exposure = 1.0;
-    // gl_FragColor = vec4(vec3(result / 1.0), 1.0);
-    // gl_FragColor = vec4(pixelColor, 1.0);
     gl_FragColor = vec4(tonemapper(pixelColor * exposure), 1.0);
 }

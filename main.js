@@ -127,6 +127,7 @@ function frame() {
 	planetShader.uniforms.cameraPos.value.copy(camera.position);
 
 	planetShader.uniforms.time.value = clock.getElapsedTime();
+	skyShader.uniforms.time.value = clock.getElapsedTime();
 
 	// planetObj.rotation.y += 0.001 * 3.0;
 	//planetObj.rotation.x = 0.5;

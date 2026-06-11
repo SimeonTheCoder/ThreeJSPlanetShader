@@ -31,6 +31,7 @@ export class SkyShader {
 			hasAtmosphere: { value: Math.random() > 0.2 },
 			SEED: { value: Math.random() * 999 },
 			starPos: { value: stars },
+			time: { value: 0 },
 		};
 
 		this.material = new THREE.ShaderMaterial({

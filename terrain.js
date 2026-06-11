@@ -5,7 +5,7 @@ import { TerrainShader } from './shaders/terrain-shader.js';
 export async function createTerrain(scene) {
 	// scene.clear();
 
-	const geometry = new THREE.PlaneGeometry(300, 300, 50, 50);
+	const geometry = new THREE.PlaneGeometry(500, 500, 250, 250);
 	geometry.rotateX(-Math.PI / 2);
 
 	const positions = geometry.attributes.position;

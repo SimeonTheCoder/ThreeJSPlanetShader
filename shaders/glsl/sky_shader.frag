@@ -17,7 +17,7 @@ varying vec2 vUv;
 varying vec3 vNormal;
 varying vec3 vPos;
 
-float cloudSpeed = 0.001;
+float cloudSpeed = 0.003;
 
 //Narkowicz ACES
 
@@ -66,10 +66,10 @@ float h(float i) {
 }
 
 float generateClouds(vec2 uv) {
-    float cloudNoise1 = octavePerlin(1.0 * vUv + vec2(10.0, 0.0) + time * cloudSpeed / 1000.0);
-    float cloudNoise2 = octavePerlin(1.0 * vUv + vec2(10.0, 0.0) + time * cloudSpeed / 1000.0);
+    float cloudNoise1 = octavePerlin(1.0 * vUv + vec2(10.0, 0.0) + time * cloudSpeed / 1.0);
+    float cloudNoise2 = octavePerlin(1.0 * vUv + vec2(10.0, 0.0) + time * cloudSpeed / 1.0);
 
-    return max(0.0, contrast(contrast(max(0.0, octavePerlin((uv + vec2(cloudNoise1, cloudNoise2) * 0.5 + time * cloudSpeed) * 20.0) / 2.0 + 0.4))) + octavePerlin(uv * 100.0) * 0.1);
+    return max(0.0, contrast(contrast(max(0.0, octavePerlin((uv + vec2(cloudNoise1, cloudNoise2) * 0.5 + time * cloudSpeed) * 20.0) / 2.0 + 0.4))) + octavePerlin(uv * 100.0 + time * cloudSpeed * 100.0) * 0.1);
 }
 
 float calculateStar(vec3 pos) {
@@ -95,10 +95,10 @@ float renderStars() {
 }
 
 vec3 renderClouds(vec3 pixelColor, vec3 skyColor, float sun) {
-    float cloudinessBias = -0.0;
+    float cloudinessBias = -0.1;
 
     vec3 stereographicProjection = vNormal / vNormal.y  - vec3(0.0, 1.0, 0.0);
-    vec2 newUv = stereographicProjection.xz;
+    vec2 newUv = stereographicProjection.xz + cloudSpeed * time;
 
     float clouds = 0.0;
     float mask = 0.0;
@@ -113,10 +113,10 @@ vec3 renderClouds(vec3 pixelColor, vec3 skyColor, float sun) {
 
         float planeHeight = 1.0 + currRatio * currRatio * currRatio * 8.0;
 
-        float cloudWidth = pow((1.0 - pow(1.0 - currRatio, 2.0)) * 1.5 - 0.7, 2.0) * 2.0 + max(0.0, min(1.0, perlinNoise(newUv * 2.0 + planeHeight * 1.0))) * 3.0;
+        float cloudWidth = pow((1.0 - pow(1.0 - currRatio, 2.0)) * 1.5 - 0.7, 2.0) * 2.0 + max(0.0, min(1.0, perlinNoise(newUv * 2.0 + planeHeight * 1.0 + cloudSpeed * time))) * 3.0;
 
         vec3 currProjection = vNormal / vNormal.y * planeHeight;
-        vec2 currUv = currProjection.xz;
+        vec2 currUv = currProjection.xz + cloudSpeed * time;
 
         // float curr = max(0.0, generateClouds(currUv * 0.03) - 0.1);
         float curr = generateClouds(currUv * 0.1) * 0.2 + generateClouds(currUv * 0.3) * 0.1 + generateClouds(currUv * 0.05) * 0.5;

@@ -18,6 +18,7 @@ export class TerrainShader {
 				),
 			},
 			SEED: { value: Math.random() * 999 },
+			cameraPos: { value: new THREE.Vector3(0, 0, 0) },
 		};
 
 		this.material = new THREE.ShaderMaterial({

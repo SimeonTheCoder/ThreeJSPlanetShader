@@ -125,6 +125,7 @@ function frame() {
 
 	lightAngleDegrees += clock.getDelta() * 5;
 	planetShader.uniforms.cameraPos.value.copy(camera.position);
+	terrainShader.uniforms.cameraPos.value.copy(camera.position);
 
 	planetShader.uniforms.time.value = clock.getElapsedTime();
 	skyShader.uniforms.time.value = clock.getElapsedTime();

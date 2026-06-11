@@ -123,13 +123,27 @@ vec3 applySpecular(vec3 color, vec3 normal, float specular, vec3 viewVector, flo
     return color + vec3(specularAmount);
 }
 
-vec3 applyLighting(vec3 color, vec3 normal) {
+vec3 calculateSkyColor() {
+    float sun = max(0.0, dot(vNormal, lightDir));
+    float haze = max(0.0, dot(vNormal, vec3(0.0, 1.0, 0.0)));
+    float day = max(0.0, dot(lightDir, vec3(0.0, 1.0, 0.0)));
+
+    float longDay = max(0.0, (dot(lightDir, vec3(0.0, 1.0, 0.0)) + 1.0) / 2.0);
+
+    float sunsetMask = sun * (1.0 - haze) * (1.0 - day) * 1.0;
+    vec3 sunsetColor = mix(vec3(1.0, 0.5, 0.2), vec3(1.0, 0.1, 0.0), pow(min(1.0, max(0.0, (0.2 - day) * 5.0)), 2.0));
+
+    vec3 dayColor = mix(mix(vec3(1.0, 0.4, 0.4), vec3(0.2, 0.4, 1.0), day), vec3(0.6, 0.6, 1.0), haze) * longDay * 1.5;
+    return mix(dayColor, sunsetColor, sunsetMask);
+}
+
+vec3 applyLighting(vec3 color, vec3 normal, float steepness) {
     float dayFactor = max(0.0, dot(lightDir, vec3(0.0, 1.0, 0.0)) * 0.5 + 0.5);
 
-    float lightAmount = max(dot(lightDir, normal), 0.0) * 2.0 * dayFactor;
-    float ambientAmount = max(0.0, dot(vec3(0.0, 1.0, 0.0), normal)) * 0.7 * dayFactor;
+    float lightAmount = max(dot(lightDir, normal), 0.0) * 1.0 * dayFactor;
+    float ambientAmount = max(0.0, dot(vec3(0.0, 1.0, 0.0), normal)) * 1.0 * dayFactor * steepness;
 
-    vec3 lightColor = vec3(lightAmount) * vec3(1.0, 0.7, 0.5) + vec3(ambientAmount) * vec3(0.5, 0.7, 1.0);
+    vec3 lightColor = vec3(lightAmount) * vec3(1.0, 0.7, 0.5) + vec3(ambientAmount) * calculateSkyColor();
 
     return color * lightColor;
 }
@@ -152,21 +166,14 @@ void main() {
     //Albedo
     vec3 groundColor = generateGroundColor(height, noise, 0.0, steepness);
 
-    //Lighting
-    // vec3 viewVector = normalize(cameraPos - vPos);
-	// float currSpecular = 1.0 - step(0.0, noise);
+    groundColor = applyLighting(groundColor, terrainNormal, 1.0 - steepness);
 
-    groundColor = applyLighting(groundColor, terrainNormal);
+    float depth = length(vPos - cameraPos) / 700.0;
+    float fog = min(1.0, exp(depth) - 1.0);
 
-    vec3 pixelColor = groundColor;
-    // vec3 pixelColor = applySpecular(resultColor, terrainNormal, currSpecular, viewVector, 50.0);
+    vec3 pixelColor = mix(groundColor, calculateSkyColor() * 0.7, fog);
 
     float exposure = 1.0;
-    // float d = dot(lightDir, terrainNormal);
-    // gl_FragColor = vec4(vec3(d * 0.5 + 0.5), 1.0);  
-    // gl_FragColor = vec4(vec3(steepness), 1.0);
-    // gl_FragColor = texture(perlinNoiseTex, vUv);
-    // gl_FragColor = vec4(groundColor, 1.0);
-    // gl_FragColor = vec4(terrainNormal * 0.5 + 0.5, 1.0);
+    // gl_FragColor = vec4(vec3(fog), 1.0);
     gl_FragColor = vec4(tonemapper(pixelColor * exposure), 1.0);
 }

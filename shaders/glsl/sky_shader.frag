@@ -79,7 +79,22 @@ float calculateStar(vec3 pos) {
     return max(0.0, 1.0 - l);
 }
 
-void main() {
+float renderStars() {
+    float stars = 0.0;
+
+    for (int i = 0; i < 200; i ++) {
+        vec3 pos = starPos[i];
+
+        stars += calculateStar(pos);
+        stars += calculateStar(pos * vec3(-1.0, 1.0, 1.0));
+        stars += calculateStar(pos * vec3(1.0, 1.0, -1.0));
+        stars += calculateStar(pos * vec3(-1.0, 1.0, -1.0));
+    }
+
+    return stars;
+}
+
+vec3 renderClouds(vec3 pixelColor, vec3 skyColor, float sun) {
     float cloudinessBias = -0.0;
 
     vec3 stereographicProjection = vNormal / vNormal.y  - vec3(0.0, 1.0, 0.0);
@@ -120,19 +135,19 @@ void main() {
 
     mask = max(0.0, min(1.0, mask));
 
-    float haze = max(0.0, dot(vNormal, vec3(0.0, 1.0, 0.0)));
-    float day = max(0.0, dot(lightDir, vec3(0.0, 1.0, 0.0)));
-    float sun = pow(max(0.0, dot(vNormal, lightDir)), 5.0);
-
     float cloudDepth = (1.0 - visibleLayer) * mask;
     cloudDepth = 1.0 * mask - (exp(pow(cloudDepth, 4.0)) - 1.0) / 1.8;
     clouds = mix(clouds, clouds * 5.0 * cloudDepth, sun);
 
-    float sunShape = pow(max(0.0, dot(vNormal, lightDir)), 1000.0);
-    float sunShapeFinal = min(1.0, step(0.8, sunShape) + sunShape * day);
+    return mix(pixelColor, vec3(clouds) * skyColor, mask);
+}
 
-    float moonShape = pow(max(0.0, dot(vNormal, -lightDir)), 1000.0) * 1.0;
-    float moonShapeFinal = min(1.0, step(0.8, moonShape) + moonShape * (1.0 - day) * 0.2);
+void main() {
+    float toSunDot = dot(vNormal, lightDir);
+
+    float sun = pow(max(0.0, toSunDot), 5.0);
+    float haze = max(0.0, dot(vNormal, vec3(0.0, 1.0, 0.0)));
+    float day = max(0.0, dot(lightDir, vec3(0.0, 1.0, 0.0)));
 
     float longDay = max(0.0, (dot(lightDir, vec3(0.0, 1.0, 0.0)) + 1.0) / 2.0);
 
@@ -141,24 +156,24 @@ void main() {
 
     vec3 dayColor = mix(mix(vec3(1.0, 0.4, 0.4), vec3(0.2, 0.4, 1.0), day), vec3(0.6, 0.6, 1.0), haze) * longDay * 1.5;
     vec3 skyColor = mix(dayColor, sunsetColor, sunsetMask);
+
+    //Stars, Sun and Moon
+    float stars = renderStars();
+    float starsTerm = pow(1.0 - longDay, 2.0) * stars;
+
+    float sunShape = pow(max(0.0, toSunDot), 1000.0);
+    float sunShapeFinal = min(1.0, step(0.8, sunShape) + sunShape * day);
     vec3 sunColor = mix(vec3(1.0, 1.0, 1.0), vec3(1.0, 0.3, 0.1), clamp(sunsetMask, 0.0, 1.0));
 
-    float stars = 0.0;
+    float moonShape = pow(max(0.0, dot(vNormal, -lightDir)), 1000.0) * 1.0;
+    float moonShapeFinal = min(1.0, step(0.8, moonShape) + moonShape * (1.0 - day) * 0.2);
 
-    for (int i = 0; i < 200; i ++) {
-        vec3 pos = starPos[i];
-
-        stars += calculateStar(pos);
-        stars += calculateStar(pos * vec3(-1.0, 1.0, 1.0));
-        stars += calculateStar(pos * vec3(1.0, 1.0, -1.0));
-        stars += calculateStar(pos * vec3(-1.0, 1.0, -1.0));
-    }
-
-    float starsTerm = pow(1.0 - longDay, 2.0) * stars;
     vec3 pixelColor = skyColor + sunShapeFinal * sunColor + moonShapeFinal + starsTerm;
 
-    pixelColor = mix(pixelColor, vec3(clouds) * skyColor, mask);
+    //Clouds
+    pixelColor = renderClouds(pixelColor, skyColor, sun);
 
+    //Tonemapping
     float exposure = 1.0;
     gl_FragColor = vec4(tonemapper(pixelColor * exposure), 1.0);
 }

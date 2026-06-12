@@ -24,6 +24,8 @@ varying vec2 vUv;
 varying vec3 vNormal;
 varying vec3 vPos;
 
+const float planetRadius = 5.0;
+
 vec3 combineNormals(vec3 normal, vec3 sampledNormal) {
     vec3 perp = cross(normal, vec3(1.0, 0, 0));
     vec3 perp2 = cross(perp, vec3(1.0, 0, 0));
@@ -94,7 +96,7 @@ vec2 randomGradient (vec2 st) {
 }
 
 float perlinNoise(vec2 uv) {
-    return 2.0 * (texture(perlinNoiseTex, uv / 50.0 + vec2(SEED * 0.1, SEED * 0.5)).r - 0.5);
+    return 2.0 * (texture(perlinNoiseTex, fract(uv / 50.0 + vec2(SEED * 0.1, SEED * 0.5))).r - 0.5);
 }
 
 float octavePerlin(vec2 uv) {
@@ -106,9 +108,9 @@ float octaveTriplanarNoise(float scaleMultiplier, vec3 p, vec3 n) {
     w = w * w;
     w /= (w.x + w.y + w.z);
 
-    float resultXY = texture(perlinNoiseTex, p.xy * scaleMultiplier / 50.0 + vec2(SEED * 0.2)).r;
-    float resultYZ = texture(perlinNoiseTex, p.yz * scaleMultiplier / 50.0 + vec2(SEED * 0.2, 1980.0)).r;
-    float resultXZ = texture(perlinNoiseTex, p.xz * scaleMultiplier / 50.0 + vec2(0.0, -SEED * 0.1)).r;
+    float resultXY = texture(perlinNoiseTex, fract(p.xy * scaleMultiplier / 50.0 + vec2(SEED * 0.2))).r;
+    float resultYZ = texture(perlinNoiseTex, fract(p.yz * scaleMultiplier / 50.0 + vec2(SEED * 0.2, 1980.0))).r;
+    float resultXZ = texture(perlinNoiseTex, fract(p.xz * scaleMultiplier / 50.0 + vec2(0.0, -SEED * 0.1))).r;
 
 	float result = resultXY * w.z + resultYZ * w.x + resultXZ * w.y;
 
@@ -125,12 +127,18 @@ float h(float i) {
     return featureScale * pow(i - 0.45, 2.0) + 0.5;
 }
 
+vec3 getPos() {
+    return (vPos - planetPos) / planetRadius;;
+}
+
 vec3 generateTerrainNormals(float noise, float threshold, vec3 normal) {
     float delta = -0.01;
 
-    float height = octaveTriplanarNoise(6.0, vPos, vNormal);
-    float heightL = octaveTriplanarNoise(6.0, vPos + vec3(delta, 0, 0), vNormal + vec3(delta, 0, 0));
-    float heightU = octaveTriplanarNoise(6.0, vPos + vec3(0, delta, 0), vNormal + vec3(0, delta, 0));
+    vec3 pos = getPos();
+
+    float height = octaveTriplanarNoise(6.0, pos, vNormal);
+    float heightL = octaveTriplanarNoise(6.0, pos + vec3(delta, 0, 0), vNormal + vec3(delta, 0, 0));
+    float heightU = octaveTriplanarNoise(6.0, pos + vec3(0, delta, 0), vNormal + vec3(0, delta, 0));
 
     float waterNoise = perlinNoise(vUv * 200.0) * 2.0;
     float waterNoiseL = perlinNoise(vUv * 200.0 + vec2(delta * 10.0, 0)) * 2.0;
@@ -158,14 +166,18 @@ vec3 generateGroundColor(float height, float noise, float threshold, float poles
 }
 
 float generateClouds(vec2 uv) {
-    float cloudNoise1 = octaveTriplanarNoise(4.0, vPos + vec3(10.0, 0.0, 0.0) + time * 0.001, vNormal);
-    float cloudNoise2 = octaveTriplanarNoise(4.0, vPos + vec3(10.0, 0.0, 0.0) + time * 0.001, vNormal);
+    vec3 pos = getPos();
+
+    float cloudNoise1 = octaveTriplanarNoise(4.0, pos + vec3(10.0, 0.0, 0.0) + time * 0.001, vNormal);
+    float cloudNoise2 = octaveTriplanarNoise(4.0, pos + vec3(10.0, 0.0, 0.0) + time * 0.001, vNormal);
 
     return max(0.0, contrast(contrast(max(0.0, octavePerlin((uv + vec2(cloudNoise1, cloudNoise2) * 0.5 + time * 0.001) * 20.0) / 2.0 + 0.4))) + octavePerlin(uv * 100.0) * 0.1);
 }
 
 vec3 applyAtmosphere(vec3 groundColor, vec3 cloudColor, vec3 viewVector) {
-    float atmosphereDistance = length(calculateOffsetSphereHit(2.0, vPos, vPos + lightDir) - vPos);
+    vec3 pos = getPos();
+
+    float atmosphereDistance = length(calculateOffsetSphereHit(2.0, pos, pos + lightDir) - pos);
     float atmosphereScattered = exp(-atmosphereDistance * 4.0);
 
     float atmosphereStrength = clamp(((dot(vNormal, lightDir) + 1.0) / 2.0 - 0.3) / 0.7, 0.0, 1.0);
@@ -197,12 +209,14 @@ vec3 genericPlanet() {
     float fineScaleDetail = random(vec2(SEED, 1.0));
     float cloudiness = mix(0.2, 0.6, random(vec2(SEED, 2.0)));
 
+    vec3 pos = getPos();
+
     //Noise
-	float noise = octaveTriplanarNoise(4.0, vPos, vNormal) + octavePerlin(vUv * 10.0) * 0.05 * fineScaleDetail;
+	float noise = octaveTriplanarNoise(4.0, pos, vNormal) + octavePerlin(vUv * 10.0) * 0.05 * fineScaleDetail;
     float clouds = max(0.0, generateClouds(vUv) * 2.0 + cloudiness);
     if (!hasWater) clouds = 0.0;
 
-    float poles = min(1.0, max(0.0, pow(abs(dot(vec3(0, 1.0, 0), vPos)), 2.0)));
+    float poles = min(1.0, max(0.0, pow(abs(dot(vec3(0, 1.0, 0), pos)), 2.0)));
     poles = clamp((poles - 0.5) * (1.0 / 0.5), 0.0, 1.0);
 
     float landmassBias = mix(0.45, 0.55, random(vec2(SEED, 3.0)));
@@ -211,7 +225,7 @@ vec3 genericPlanet() {
     if (!hasWater) threshold = 0.0;
 
     //Normals
-    float height = octaveTriplanarNoise(6.0, vPos, vNormal);
+    float height = octaveTriplanarNoise(6.0, pos, vNormal);
 
     vec3 normalMap = generateTerrainNormals(noise, threshold, vNormal);
     float steepness = length(normalMap - vec3(0.0, 0.0, 1.0));
@@ -224,7 +238,7 @@ vec3 genericPlanet() {
 	vec3 groundColor = mix(waterColor, gColor, step(threshold, noise));
 
     //Lighting
-    vec3 viewVector = normalize(cameraPos - vPos);
+    vec3 viewVector = normalize(cameraPos - pos);
 	float currSpecular = 1.0 - step(threshold, noise) + poles;
 
     groundColor = applyLighting(groundColor, terrainNormal);
@@ -232,20 +246,23 @@ vec3 genericPlanet() {
 
     vec3 resultColor = hasAtmosphere ? applyAtmosphere(groundColor, cloudsColor, viewVector) : groundColor;
     // return vec3(time / 1300);
+    // return vec3(noise);
     return applySpecular(resultColor, terrainNormal, currSpecular * max(0.0, 1.0 - clouds), viewVector, 50.0);
 }
 
 vec3 gasGiant() {
     float clouds = contrast(contrast(generateClouds(vUv * vec2(0.25, 2.0)) + 0.3)) * 1.0 + contrast(generateClouds(vUv * vec2(0.3, 1.5) + vec2(100.0, 100.0)) + 0.5);
 
-    float poles = min(1.0, max(0.0, pow(abs(dot(vec3(0, 1.0, 0), vPos)), 2.0)));
+    vec3 pos = getPos();
+
+    float poles = min(1.0, max(0.0, pow(abs(dot(vec3(0, 1.0, 0), pos)), 2.0)));
     poles = clamp((poles - 0.5) * (1.0 / 0.5), 0.0, 1.0);
 
     float threshold = 0.515 - clamp(poles - 0.3, 0.0, 1.0) * 0.5;
     if (!hasWater) threshold = 0.0;
 
     //Lighting
-    vec3 viewVector = normalize(cameraPos - vPos);
+    vec3 viewVector = normalize(cameraPos - pos);
 	float currSpecular = clouds * 0.2;
 
     vec3 cloudsColor = applyLighting(vec3(clouds), vNormal);

@@ -28,7 +28,7 @@ const renderer = new THREE.WebGLRenderer();
 renderer.setSize(width, height);
 
 const controls = new OrbitControls(camera, renderer.domElement);
-// configureControls();
+configureControls();
 
 function configureControls() {
 	controls.autoRotate = true;
@@ -40,7 +40,7 @@ function configureControls() {
 
 document.body.appendChild(renderer.domElement);
 
-const planetGeometry = new THREE.SphereGeometry(1, 128, 128);
+const planetGeometry = new THREE.SphereGeometry(5, 128, 128);
 
 const loader = await new THREE.TextureLoader();
 const noiseTexture = await loader.loadAsync('./textures/noise.png');
@@ -57,8 +57,8 @@ const planetShader = await new PlanetShader({
 }).init();
 
 const planetObj = new THREE.Mesh(planetGeometry, planetShader.material);
-planetObj.position.x = 1;
-// scene.add(planetObj);
+// planetObj.position.x = 1;
+scene.add(planetObj);
 
 const terrainGeometry = await createTerrain(scene);
 
@@ -67,7 +67,7 @@ const terrainShader = await new TerrainShader({
 }).init();
 
 const terrainMesh = new THREE.Mesh(terrainGeometry, terrainShader.material);
-scene.add(terrainMesh);
+// scene.add(terrainMesh);
 
 const skyShader = await new SkyShader({
 	perlinNoiseTex: noiseTexture,
@@ -77,7 +77,7 @@ const atmosphere = new THREE.Mesh(
 	new THREE.SphereGeometry(500, 300, 300),
 	skyShader.material,
 );
-scene.add(atmosphere);
+// scene.add(atmosphere);
 
 let lightAngleDegrees = 45.0;
 

@@ -1,192 +1,264 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+
 import { PlanetShader } from './shaders/planet-shader.js';
 import { TerrainShader } from './shaders/terrain-shader.js';
-import { generatePerlinNoiseTexture } from './generators.js';
-import { createTerrain } from './terrain.js';
 import { SkyShader } from './shaders/sky-shader.js';
 
-const width = window.innerWidth;
-const height = window.innerHeight;
+import { createTerrain } from './terrain.js';
 
-const scene = new THREE.Scene();
+const textureLoader = new THREE.TextureLoader();
 
-const light = new THREE.DirectionalLight('#ffffff', 1);
-light.position.set(0, 1, 1);
-light.target.position.set(0, 0, 0);
-light.target.updateMatrixWorld();
-light.updateMatrixWorld();
-scene.add(light);
-scene.add(light.target);
+async function loadSharedNoiseTexture() {
+	const tex = await textureLoader.loadAsync('./textures/noise.png');
 
-const camera = new THREE.PerspectiveCamera(90, width / height, 0.1, 1000);
+	tex.minFilter = THREE.LinearFilter;
+	tex.magFilter = THREE.LinearFilter;
+	tex.generateMipmaps = false;
+	tex.colorSpace = THREE.NoColorSpace;
+	tex.needsUpdate = true;
 
-const orbitDistance = 10;
-camera.position.z = orbitDistance;
+	return tex;
+}
 
-const renderer = new THREE.WebGLRenderer();
-renderer.setSize(width, height);
+const sharedNoiseTexture = await loadSharedNoiseTexture();
 
-const controls = new OrbitControls(camera, renderer.domElement);
-configureControls();
+export async function createPlanetViewer({
+	parent,
+	width = 400,
+	height = 400,
+} = {}) {
+	//--------------------------------------------------
+	// Scene
+	//--------------------------------------------------
 
-function configureControls() {
+	const scene = new THREE.Scene();
+
+	const camera = new THREE.PerspectiveCamera(90, width / height, 0.1, 1000);
+
+	camera.position.z = 10;
+
+	const renderer = new THREE.WebGLRenderer({
+		antialias: true,
+	});
+
+	renderer.setSize(width, height);
+
+	parent.appendChild(renderer.domElement);
+
+	//--------------------------------------------------
+	// Controls
+	//--------------------------------------------------
+
+	const controls = new OrbitControls(camera, renderer.domElement);
+
 	controls.autoRotate = true;
 	controls.autoRotateSpeed = 0.5;
 	controls.enableDamping = true;
 	controls.enablePan = false;
 	controls.enableZoom = false;
-}
 
-document.body.appendChild(renderer.domElement);
+	//--------------------------------------------------
+	// Light
+	//--------------------------------------------------
 
-const planetGeometry = new THREE.SphereGeometry(5, 128, 128);
+	const light = new THREE.DirectionalLight('#fff', 1);
 
-const loader = await new THREE.TextureLoader();
-const noiseTexture = await loader.loadAsync('./textures/noise.png');
-noiseTexture.minFilter = THREE.LinearFilter;
-noiseTexture.magFilter = THREE.LinearFilter;
-noiseTexture.generateMipmaps = false;
-noiseTexture.colorSpace = THREE.NoColorSpace;
-noiseTexture.needsUpdate = true;
+	light.position.set(0, 1, 1);
 
-// const noiseTexture = generatePerlinNoiseTexture(1024, 1024);
+	light.target.position.set(0, 0, 0);
+	light.target.updateMatrixWorld();
 
-const planetShader = await new PlanetShader({
-	perlinNoiseTex: noiseTexture,
-}).init();
+	scene.add(light);
+	scene.add(light.target);
 
-const planetObj = new THREE.Mesh(planetGeometry, planetShader.material);
-// planetObj.position.x = 1;
-scene.add(planetObj);
+	//--------------------------------------------------
+	// Geometry
+	//--------------------------------------------------
 
-const terrainGeometry = await createTerrain(scene);
+	const planetGeometry = new THREE.SphereGeometry(5, 128, 128);
 
-const terrainShader = await new TerrainShader({
-	perlinNoiseTex: noiseTexture,
-}).init();
+	//--------------------------------------------------
+	// Shaders
+	//--------------------------------------------------
 
-const terrainMesh = new THREE.Mesh(terrainGeometry, terrainShader.material);
-// scene.add(terrainMesh);
+	const planetShader = await new PlanetShader({
+		perlinNoiseTex: sharedNoiseTexture,
+	}).init();
 
-const skyShader = await new SkyShader({
-	perlinNoiseTex: noiseTexture,
-}).init();
+	const terrainShader = await new TerrainShader({
+		perlinNoiseTex: sharedNoiseTexture,
+	}).init();
 
-const atmosphere = new THREE.Mesh(
-	new THREE.SphereGeometry(500, 300, 300),
-	skyShader.material,
-);
+	const skyShader = await new SkyShader({
+		perlinNoiseTex: sharedNoiseTexture,
+	}).init();
 
-let lightAngleDegrees = 45.0;
+	//--------------------------------------------------
+	// Meshes
+	//--------------------------------------------------
 
-renderer.setAnimationLoop(frame);
+	const planetMesh = new THREE.Mesh(planetGeometry, planetShader.material);
 
-function calculateLightDir() {
-	const lightAngleRadians = (lightAngleDegrees / 180.0) * Math.PI;
-	const lightDir = new THREE.Vector3(
-		Math.cos(lightAngleRadians),
-		0,
-		Math.sin(lightAngleRadians),
+	scene.add(planetMesh);
+
+	const terrainGeometry = await createTerrain(scene);
+
+	const terrainMesh = new THREE.Mesh(terrainGeometry, terrainShader.material);
+
+	// scene.add(terrainMesh);
+
+	const atmosphere = new THREE.Mesh(
+		new THREE.SphereGeometry(500, 300, 300),
+		skyShader.material,
 	);
 
-	lightDir.normalize();
+	// scene.add(atmosphere);
 
-	return lightDir;
-}
+	//--------------------------------------------------
+	// Animation state
+	//--------------------------------------------------
 
-const clock = new THREE.Clock();
+	let lightAngleDegrees = 45;
 
-function frame() {
-	const lightDir = calculateLightDir();
+	const clock = new THREE.Clock();
 
-	planetShader.uniforms.lightDir.value = lightDir;
-	terrainShader.uniforms.lightDir.value = new THREE.Vector3(
-		lightDir.x,
-		lightDir.z,
-		0,
-	).normalize();
-	skyShader.uniforms.lightDir.value = new THREE.Vector3(
-		lightDir.x,
-		lightDir.z,
-		0,
-	).normalize();
+	function calculateLightDir() {
+		const radians = (lightAngleDegrees / 180) * Math.PI;
 
-	planetShader.uniforms.planetPos.value.copy(planetObj.position);
-
-	lightAngleDegrees += clock.getDelta() * 5;
-	planetShader.uniforms.cameraPos.value.copy(camera.position);
-	terrainShader.uniforms.cameraPos.value.copy(camera.position);
-
-	planetShader.uniforms.time.value = clock.getElapsedTime();
-	skyShader.uniforms.time.value = clock.getElapsedTime();
-
-	// planetObj.rotation.y += 0.001 * 3.0;
-	//planetObj.rotation.x = 0.5;
-
-	controls.update();
-
-	renderer.render(scene, camera);
-}
-
-export function setPlanet(planet) {
-	const u = planetShader.uniforms;
-
-	u.hasWater.value = planet.hasWater;
-	u.hasAtmosphere.value = planet.hasAtmosphere;
-	u.isGasGiant.value = planet.isGasGiant;
-
-	u.GROUND_COLOR.value = planet.groundColor.clone();
-	u.WATER_COLOR.value = planet.waterColor.clone();
-	u.ATMOSPHERE_COLOR.value = planet.atmosphereColor.clone();
-	u.CLOUD_COLOR.value = planet.cloudColor
-		? planet.cloudColor.clone()
-		: new THREE.Vector3(1, 1, 1);
-
-	u.SEED.value = planet.seed;
-}
-
-window.addEventListener('keydown', async (e) => {
-	if (e.key == ',') {
-		lightAngleDegrees += 10;
-	} else if (e.key == '.') {
-		lightAngleDegrees -= 10;
+		return new THREE.Vector3(
+			Math.cos(radians),
+			0,
+			Math.sin(radians),
+		).normalize();
 	}
 
-	if (e.key == 'r') {
-		setPlanet({
-			hasWater: Math.random() > 0.3,
-			hasAtmosphere: Math.random() > 0.2,
-			isGasGiant: Math.random() > 0.8,
-			groundColor: new THREE.Vector3(
-				Math.random(),
-				Math.random(),
-				Math.random(),
-			),
-			waterColor: new THREE.Vector3(
-				Math.random(),
-				Math.random(),
-				Math.random(),
-			),
-			atmosphereColor: new THREE.Vector3(
-				Math.random(),
-				Math.random(),
-				Math.random(),
-			),
-			cloudColor: new THREE.Vector3(
-				Math.random(),
-				Math.random(),
-				Math.random(),
-			),
-			seed: Math.random() * 999,
-		});
+	function frame() {
+		const lightDir = calculateLightDir();
 
-		planetShader.uniforms.lightDir.value = calculateLightDir();
-		terrainShader.uniforms.lightDir.value = calculateLightDir();
+		planetShader.uniforms.lightDir.value.copy(lightDir);
 
-		planetShader.uniforms.planetPos.value.copy(planetObj.position);
+		terrainShader.uniforms.lightDir.value
+			.set(lightDir.x, lightDir.z, 0)
+			.normalize();
 
-		//lightAngleDegrees += 5.0 / 60.0 * 3.0;
+		skyShader.uniforms.lightDir.value
+			.set(lightDir.x, lightDir.z, 0)
+			.normalize();
+
+		planetShader.uniforms.planetPos.value.copy(planetMesh.position);
+
+		lightAngleDegrees += clock.getDelta() * 5;
+
 		planetShader.uniforms.cameraPos.value.copy(camera.position);
+
+		terrainShader.uniforms.cameraPos.value.copy(camera.position);
+
+		planetShader.uniforms.time.value = clock.getElapsedTime();
+
+		skyShader.uniforms.time.value = clock.getElapsedTime();
+
+		controls.update();
+
+		renderer.render(scene, camera);
 	}
+
+	renderer.setAnimationLoop(frame);
+
+	//--------------------------------------------------
+	// Public API
+	//--------------------------------------------------
+
+	function setPlanet(planet) {
+		const u = planetShader.uniforms;
+
+		u.hasWater.value = planet.hasWater;
+		u.hasAtmosphere.value = planet.hasAtmosphere;
+		u.isGasGiant.value = planet.isGasGiant;
+
+		u.GROUND_COLOR.value = planet.groundColor.clone();
+
+		u.WATER_COLOR.value = planet.waterColor.clone();
+
+		u.ATMOSPHERE_COLOR.value = planet.atmosphereColor.clone();
+
+		u.CLOUD_COLOR.value = planet.cloudColor
+			? planet.cloudColor.clone()
+			: new THREE.Vector3(1, 1, 1);
+
+		u.SEED.value = planet.seed;
+	}
+
+	function dispose() {
+		renderer.setAnimationLoop(null);
+
+		controls.dispose();
+		renderer.dispose();
+
+		parent.removeChild(renderer.domElement);
+	}
+
+	return {
+		scene,
+		camera,
+		renderer,
+		controls,
+		setPlanet,
+		dispose,
+	};
+}
+
+const container1 = document.getElementById('planet1');
+const container2 = document.getElementById('planet2');
+const container3 = document.getElementById('planet3');
+
+const viewer1 = await createPlanetViewer({
+	parent: container1,
+	width: 400,
+	height: 400,
+});
+
+const viewer2 = await createPlanetViewer({
+	parent: container2,
+	width: 400,
+	height: 400,
+});
+
+const viewer3 = await createPlanetViewer({
+	parent: container3,
+	width: 400,
+	height: 400,
+});
+
+viewer1.setPlanet({
+	hasWater: true,
+	hasAtmosphere: true,
+	isGasGiant: false,
+	groundColor: new THREE.Vector3(0.3, 0.8, 0.2),
+	waterColor: new THREE.Vector3(0.1, 0.2, 1.0),
+	atmosphereColor: new THREE.Vector3(0.5, 0.8, 1.0),
+	cloudColor: new THREE.Vector3(1, 1, 1),
+	seed: 123,
+});
+
+viewer2.setPlanet({
+	hasWater: false,
+	hasAtmosphere: false,
+	isGasGiant: false,
+	groundColor: new THREE.Vector3(0.7, 0.2, 0.1),
+	waterColor: new THREE.Vector3(),
+	atmosphereColor: new THREE.Vector3(),
+	cloudColor: new THREE.Vector3(),
+	seed: 456,
+});
+
+viewer3.setPlanet({
+	hasWater: false,
+	hasAtmosphere: true,
+	isGasGiant: true,
+	groundColor: new THREE.Vector3(1.0, 0.7, 0.2),
+	waterColor: new THREE.Vector3(),
+	atmosphereColor: new THREE.Vector3(1.0, 0.6, 0.2),
+	cloudColor: new THREE.Vector3(1, 1, 1),
+	seed: 789,
 });

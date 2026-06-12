@@ -178,17 +178,17 @@ vec3 applyAtmosphere(vec3 groundColor, vec3 cloudColor, vec3 viewVector) {
     vec3 pos = getPos();
 
     float atmosphereDistance = length(calculateOffsetSphereHit(2.0, pos, pos + lightDir) - pos);
-    float atmosphereScattered = exp(-atmosphereDistance * 4.0);
+    float atmosphereScattered = max(0.0, exp(-atmosphereDistance * 4.0));
 
     float atmosphereStrength = clamp(((dot(vNormal, lightDir) + 1.0) / 2.0 - 0.3) / 0.7, 0.0, 1.0);
 
     vec3 atmosphereColor = mix(vec3(1.0, 1.0, 1.0), vec3(0.8, 0.2, 0.0), clamp(1.0 - exp(-4.0 * atmosphereDistance) * 100.0, 0.0, 1.0)) * atmosphereStrength;
     atmosphereColor *= ATMOSPHERE_COLOR;
 
-    vec3 surfaceColor = groundColor * atmosphereColor;
+    vec3 surfaceColor = groundColor * atmosphereColor + mix(groundColor * 0.65, vec3(0.0), groundColor);
     
-    float atmosphereThickness = mix(1.0, 5.0, pow(random(vec2(SEED, 19.0)), 3.0)) * (isGasGiant ? 1.5 : 1.0);
-    float fresnel = (1.0 - pow(dot(lightDir, vNormal) * 0.5 + 0.5, 0.1)) * atmosphereThickness * 0.5 + (1.0 - pow(dot(viewVector, vNormal), 0.1)) * atmosphereThickness * 0.5;
+    float atmosphereThickness = max(0.0, mix(1.0, 5.0, pow(random(vec2(SEED, 19.0)), 3.0)) * (isGasGiant ? 1.5 : 1.0));
+    float fresnel = max(0.0, (1.0 - pow(dot(lightDir, vNormal) * 0.5 + 0.5, 0.1)) * atmosphereThickness * 0.5 + (1.0 - pow(dot(viewVector, vNormal), 0.1)) * atmosphereThickness * 0.5);
 
     vec3 pixelColor = surfaceColor + cloudColor * cloudStrength * random(vec2(SEED, 17.0)) + ATMOSPHERE_COLOR * fresnel * atmosphereStrength * 2.5 + atmosphereColor * atmosphereScattered * 20.0;
     return max(pixelColor, vec3(0.0));
@@ -201,7 +201,7 @@ vec3 applySpecular(vec3 color, vec3 normal, float specular, vec3 viewVector, flo
 }
 
 vec3 applyLighting(vec3 color, vec3 normal) {
-    float lightAmount = max(dot(lightDir, normal), 0.0);
+    float lightAmount = max(dot(lightDir, normal), 0.2);
     return color * lightAmount;
 }
 

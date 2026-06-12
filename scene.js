@@ -77,7 +77,6 @@ const atmosphere = new THREE.Mesh(
 	new THREE.SphereGeometry(500, 300, 300),
 	skyShader.material,
 );
-// scene.add(atmosphere);
 
 let lightAngleDegrees = 45.0;
 
@@ -90,15 +89,7 @@ function calculateLightDir() {
 		0,
 		Math.sin(lightAngleRadians),
 	);
-	// const lightDir = new THREE.Vector3(
-	// 	light.position.x - light.target.position.x,
-	// 	light.position.y - light.target.position.y,
-	// 	light.position.z - light.target.position.z,
-	// );
-	// const lightDir = light.target;
-	// const lightDir = new THREE.Vector3(Math.sin(lightAngleRadians), Math.cos(lightAngleRadians), 0);
 
-	// lightDir.applyMatrix4(camera.matrixWorldInverse);
 	lightDir.normalize();
 
 	return lightDir;
@@ -138,6 +129,23 @@ function frame() {
 	renderer.render(scene, camera);
 }
 
+export function setPlanet(planet) {
+	const u = planetShader.uniforms;
+
+	u.hasWater.value = planet.hasWater;
+	u.hasAtmosphere.value = planet.hasAtmosphere;
+	u.isGasGiant.value = planet.isGasGiant;
+
+	u.GROUND_COLOR.value = planet.groundColor.clone();
+	u.WATER_COLOR.value = planet.waterColor.clone();
+	u.ATMOSPHERE_COLOR.value = planet.atmosphereColor.clone();
+	u.CLOUD_COLOR.value = planet.cloudColor
+		? planet.cloudColor.clone()
+		: new THREE.Vector3(1, 1, 1);
+
+	u.SEED.value = planet.seed;
+}
+
 window.addEventListener('keydown', async (e) => {
 	if (e.key == ',') {
 		lightAngleDegrees += 10;
@@ -146,26 +154,32 @@ window.addEventListener('keydown', async (e) => {
 	}
 
 	if (e.key == 'r') {
-		const u = planetShader.uniforms;
-
-		u.hasWater.value = Math.random() > 0.3;
-		u.hasAtmosphere.value = Math.random() > 0.2;
-		u.isGasGiant.value = Math.random() > 0.8;
-
-		u.GROUND_COLOR.value.set(Math.random(), Math.random(), Math.random());
-		u.WATER_COLOR.value.set(Math.random(), Math.random(), Math.random());
-		u.ATMOSPHERE_COLOR.value.set(
-			Math.random(),
-			Math.random(),
-			Math.random(),
-		);
-		u.CLOUD_COLOR.value.set(Math.random(), Math.random(), Math.random());
-
-		u.SEED.value = Math.random() * 999;
-
-		// u.perlinNoiseTex.value = convertArrToTexture(
-		// 	generatePerlinNoiseTexture(1024, 1024),
-		// );
+		setPlanet({
+			hasWater: Math.random() > 0.3,
+			hasAtmosphere: Math.random() > 0.2,
+			isGasGiant: Math.random() > 0.8,
+			groundColor: new THREE.Vector3(
+				Math.random(),
+				Math.random(),
+				Math.random(),
+			),
+			waterColor: new THREE.Vector3(
+				Math.random(),
+				Math.random(),
+				Math.random(),
+			),
+			atmosphereColor: new THREE.Vector3(
+				Math.random(),
+				Math.random(),
+				Math.random(),
+			),
+			cloudColor: new THREE.Vector3(
+				Math.random(),
+				Math.random(),
+				Math.random(),
+			),
+			seed: Math.random() * 999,
+		});
 
 		planetShader.uniforms.lightDir.value = calculateLightDir();
 		terrainShader.uniforms.lightDir.value = calculateLightDir();

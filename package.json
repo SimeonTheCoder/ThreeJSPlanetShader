@@ -1,8 +1,10 @@
 {
   "dependencies": {
-    "three": "^0.182.0"
+    "three": "^0.182.0",
+    "threejs-recorder": "^1.1.2"
   },
   "devDependencies": {
+    "typescript": "^6.0.3",
     "vite": "^7.3.1"
   }
 }

@@ -20,7 +20,7 @@ export async function createTerrain(scene) {
 
 		const craterCoefficient = Math.max(
 			0,
-			Math.min(1, (x * scale) ** 2 + (z * scale) ** 2),
+			Math.min(1, (x * scale) ** 4 + (z * scale) ** 4),
 		);
 
 		h = h * craterCoefficient * 2 + 0 * (1 - craterCoefficient);

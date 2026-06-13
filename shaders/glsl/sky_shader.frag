@@ -17,7 +17,7 @@ varying vec2 vUv;
 varying vec3 vNormal;
 varying vec3 vPos;
 
-float cloudSpeed = 0.003;
+float cloudSpeed = 0.1;
 
 //Narkowicz ACES
 

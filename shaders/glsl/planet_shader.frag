@@ -27,12 +27,22 @@ varying vec3 vPos;
 const float planetRadius = 5.0;
 
 vec3 combineNormals(vec3 normal, vec3 sampledNormal) {
-    vec3 perp = cross(normal, vec3(1.0, 0, 0));
+   vec3 perp = cross(normal, vec3(1.0, 0, 0));
     vec3 perp2 = cross(perp, vec3(1.0, 0, 0));
 
-    vec3 combined = perp * sampledNormal.y + perp2 * sampledNormal.x + normal * sampledNormal.z;
+    vec3 up = abs(normal.y) < 0.999
+        ? vec3(0.0, 1.0, 0.0)
+        : vec3(1.0, 0.0, 0.0);
 
-    return normalize(mix(normal, combined, normalFactor));
+    vec3 tangent = normalize(cross(up, normal));
+    vec3 bitangent = cross(normal, sampledNormal);
+
+    vec3 combined =
+      tangent   * sampledNormal.x +
+      bitangent * sampledNormal.y +
+      normal    * sampledNormal.z;
+
+    return normalize(mix(normal, combined, 1.0));
 }
 
 //Narkowicz ACES
@@ -124,7 +134,8 @@ float contrast(float v) {
 
 float h(float i) {
     float featureScale = mix(50.0, 1000.0, pow(random(vec2(SEED, 5.0)), 3.0));
-    return featureScale * pow(i - 0.45, 2.0) + 0.5;
+    // return featureScale * pow(i - 0.45, 2.0) + 0.5;
+    return i;
 }
 
 vec3 getPos() {

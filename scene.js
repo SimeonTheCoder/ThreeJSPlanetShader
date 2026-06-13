@@ -6,36 +6,57 @@ import { generatePerlinNoiseTexture } from './generators.js';
 import { createTerrain } from './terrain.js';
 import { SkyShader } from './shaders/sky-shader.js';
 
+import renderCity from './main.js';
+import { modules } from './modules.js';
+import { generateField } from './wfc.js';
+
+import { CanvasRecorder } from './node_modules/threejs-recorder/package/CanvasRecorder.js';
+import { DomeShader } from './shaders/dome-shader.js';
+
+let isSpaceView = true;
+
 const width = window.innerWidth;
 const height = window.innerHeight;
 
 const scene = new THREE.Scene();
-
-const light = new THREE.DirectionalLight('#ffffff', 1);
-light.position.set(0, 1, 1);
-light.target.position.set(0, 0, 0);
-light.target.updateMatrixWorld();
-light.updateMatrixWorld();
-scene.add(light);
-scene.add(light.target);
 
 const camera = new THREE.PerspectiveCamera(90, width / height, 0.1, 1000);
 
 const orbitDistance = 10;
 camera.position.z = orbitDistance;
 
-const renderer = new THREE.WebGLRenderer();
+const renderer = new THREE.WebGLRenderer({ alpha: false });
 renderer.setSize(width, height);
+
+renderer.shadowMapEnabled = true;
+renderer.shadowMapType = THREE.PCFSoftShadowMap;
+
+const sun = new THREE.DirectionalLight('#ffffff', 1);
+sun.position.set(0, 1, 1);
+sun.target.position.set(0, 0, 0);
+sun.target.updateMatrixWorld();
+sun.updateMatrixWorld();
+sun.shadowMapWidth = 2048;
+sun.shadowMapHeight = 2048;
+sun.castShadow = true;
+sun.shadow.camera.near = 10;
+sun.shadow.camera.far = 100;
+sun.shadow.camera.left = -50;
+sun.shadow.camera.right = 50;
+sun.shadow.camera.top = 50;
+sun.shadow.camera.bottom = -50;
+scene.add(sun);
+scene.add(sun.target);
 
 const controls = new OrbitControls(camera, renderer.domElement);
 configureControls();
 
 function configureControls() {
 	controls.autoRotate = true;
-	controls.autoRotateSpeed = 0.5;
+	controls.autoRotateSpeed = 0.1;
 	controls.enableDamping = true;
-	controls.enablePan = false;
-	controls.enableZoom = false;
+	// controls.enablePan = false;
+	// controls.enableZoom = false;
 }
 
 document.body.appendChild(renderer.domElement);
@@ -56,27 +77,36 @@ const planetShader = await new PlanetShader({
 	perlinNoiseTex: noiseTexture,
 }).init();
 
-const planetObj = new THREE.Mesh(planetGeometry, planetShader.material);
-// planetObj.position.x = 1;
-scene.add(planetObj);
-
-const terrainGeometry = await createTerrain(scene);
+const skyShader = await new SkyShader({
+	perlinNoiseTex: noiseTexture,
+}).init();
 
 const terrainShader = await new TerrainShader({
 	perlinNoiseTex: noiseTexture,
 }).init();
 
-const terrainMesh = new THREE.Mesh(terrainGeometry, terrainShader.material);
-// scene.add(terrainMesh);
+const domeShader = await new DomeShader().init();
 
-const skyShader = await new SkyShader({
-	perlinNoiseTex: noiseTexture,
-}).init();
+const planetObj = new THREE.Mesh(planetGeometry, planetShader.material);
+const terrainGeometry = await createTerrain(scene);
+
+const terrainMesh = new THREE.Mesh(terrainGeometry, terrainShader.material);
+terrainMesh.castShadow = true;
 
 const atmosphere = new THREE.Mesh(
 	new THREE.SphereGeometry(500, 300, 300),
 	skyShader.material,
 );
+
+const dome = new THREE.Mesh(
+	new THREE.SphereGeometry(50, 32, 32),
+	domeShader.material,
+);
+
+scene.add(planetObj);
+scene.add(terrainMesh);
+scene.add(atmosphere);
+scene.add(dome);
 
 let lightAngleDegrees = 45.0;
 
@@ -97,10 +127,39 @@ function calculateLightDir() {
 
 const clock = new THREE.Clock();
 
+let paused = true;
+
+function toggleScene() {
+	isSpaceView = !isSpaceView;
+
+	planetObj.visible = !isSpaceView;
+	terrainMesh.visible = isSpaceView;
+	dome.visible = isSpaceView;
+	atmosphere.visible = isSpaceView;
+
+	for (let obj of cityObjects) {
+		obj.visible = isSpaceView;
+	}
+}
+
 function frame() {
 	const lightDir = calculateLightDir();
 
+	sun.position.set(
+		skyShader.uniforms.lightDir.value.x,
+		skyShader.uniforms.lightDir.value.y,
+		skyShader.uniforms.lightDir.value.z,
+	);
+
+	planetShader.uniforms.planetPos.value.copy(planetObj.position);
+	planetShader.uniforms.cameraPos.value.copy(camera.position);
+	planetShader.uniforms.time.value = !paused ? clock.getElapsedTime() : 0;
 	planetShader.uniforms.lightDir.value = lightDir;
+
+	// ligghtAnleDegrees += clock.getDelta() * 5;
+	terrainShader.uniforms.cameraPos.value.copy(camera.position);
+	skyShader.uniforms.time.value = !paused ? clock.getElapsedTime() : 0;
+
 	terrainShader.uniforms.lightDir.value = new THREE.Vector3(
 		lightDir.x,
 		lightDir.z,
@@ -111,20 +170,19 @@ function frame() {
 		lightDir.z,
 		0,
 	).normalize();
-
-	planetShader.uniforms.planetPos.value.copy(planetObj.position);
-
-	lightAngleDegrees += clock.getDelta() * 5;
-	planetShader.uniforms.cameraPos.value.copy(camera.position);
-	terrainShader.uniforms.cameraPos.value.copy(camera.position);
-
-	planetShader.uniforms.time.value = clock.getElapsedTime();
-	skyShader.uniforms.time.value = clock.getElapsedTime();
+	domeShader.uniforms.lightDir.value = new THREE.Vector3(
+		lightDir.x,
+		lightDir.z,
+		0,
+	).normalize();
 
 	// planetObj.rotation.y += 0.001 * 3.0;
 	//planetObj.rotation.x = 0.5;
 
-	controls.update();
+	if (!paused) {
+		controls.update();
+		// camera.rotateX((30 / 180) * Math.PI);
+	}
 
 	renderer.render(scene, camera);
 }
@@ -146,12 +204,66 @@ export function setPlanet(planet) {
 	u.SEED.value = planet.seed;
 }
 
+const fieldWidth = 10 * 3;
+const fieldHeight = fieldWidth;
+
+const offsetHeight = terrainGeometry.attributes.position.getY(
+	Math.floor(terrainGeometry.attributes.position.count / 2),
+);
+
+terrainMesh.translateY(-offsetHeight);
+
+const field = generateField(
+	fieldWidth,
+	fieldHeight,
+	modules,
+	(i, j) => {
+		const x = ((j - fieldWidth / 6) / fieldWidth) * 6;
+		const y = ((i - fieldHeight / 6) / fieldHeight) * 6;
+
+		const d = x * x + y * y;
+
+		const radius = 0.8;
+
+		return d < radius ? -1 : 0;
+		// return 0;
+	},
+	4,
+);
+
+const cityObjects = await renderCity(field, [
+	'gray',
+	'green',
+	'red',
+	'blue',
+	'pink',
+]);
+
+for (let obj of cityObjects) {
+	scene.add(obj);
+}
+
+// Get your canvas element
+const canvas = renderer.domElement;
+
+// Or with custom options
+const recorder = new CanvasRecorder(canvas, {
+	fps: 60,
+	duration: 30, // seconds
+	filename: 'my-animation',
+	// mimeType: 'video/webm',
+});
+
 window.addEventListener('keydown', async (e) => {
 	if (e.key == ',') {
 		lightAngleDegrees += 10;
 	} else if (e.key == '.') {
 		lightAngleDegrees -= 10;
 	}
+
+	if (e.key == 'j') recorder.start();
+	if (e.key == 'p') paused = !paused;
+	if (e.key == 't') toggleScene();
 
 	if (e.key == 'r') {
 		setPlanet({
@@ -190,3 +302,5 @@ window.addEventListener('keydown', async (e) => {
 		planetShader.uniforms.cameraPos.value.copy(camera.position);
 	}
 });
+
+toggleScene();

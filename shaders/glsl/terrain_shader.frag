@@ -8,6 +8,7 @@ uniform bool hasWater;
 uniform bool hasAtmosphere;
 
 uniform vec3 GROUND_COLOR;
+uniform vec3 ATMOSPHERE_COLOR;
 
 uniform float SEED;
 
@@ -103,8 +104,8 @@ vec3 generateGroundColor(float height, float noise, float threshold, float steep
 
     float steepnessFactor = steepness * steepness * (3.0 - 2.0 * steepness);
 
-    gColor = mix(vec3(0.5, 0.4, 0.3), gColor, 1.0 - steepnessFactor);
-    // gColor = mix(vec3(0.5, 0.4, 0.3), gColor, 1.0 - step(0.5, steepness));
+    // gColor = mix(vec3(1.0) - gColor * vec3(0.5, 0.5, 0.5), gColor, pow(1.0 - steepnessFactor, floor(5.0 * random(vec2(SEED + 19.0, 0.0)))));
+    gColor = mix(vec3(0.5, 0.4, 0.3), gColor, 1.0 - step(0.5, steepness));
     // gColor = mix(gColor, vec3(1.0), step(500.0, h(height)));
 
     return gColor;
@@ -131,9 +132,9 @@ vec3 calculateSkyColor() {
     float longDay = max(0.0, (dot(lightDir, vec3(0.0, 1.0, 0.0)) + 1.0) / 2.0);
 
     float sunsetMask = sun * (1.0 - haze) * (1.0 - day) * 1.0;
-    vec3 sunsetColor = mix(vec3(1.0, 0.5, 0.2), vec3(1.0, 0.1, 0.0), pow(min(1.0, max(0.0, (0.2 - day) * 5.0)), 2.0));
+    vec3 sunsetColor = mix(normalize(vec3(1.0) - ATMOSPHERE_COLOR), normalize(vec3(1.0) - ATMOSPHERE_COLOR * 3.0), pow(min(1.0, max(0.0, (0.2 - day) * 5.0)), 2.0));
 
-    vec3 dayColor = mix(mix(vec3(1.0, 0.4, 0.4), vec3(0.2, 0.4, 1.0), day), vec3(0.6, 0.6, 1.0), haze) * longDay * 1.5;
+    vec3 dayColor = mix(mix(normalize(vec3(1.0) - ATMOSPHERE_COLOR), ATMOSPHERE_COLOR, day), ATMOSPHERE_COLOR, haze) * longDay * 1.5;
     return mix(dayColor, sunsetColor, sunsetMask);
 }
 

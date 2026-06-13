@@ -88,7 +88,10 @@ const terrainShader = await new TerrainShader({
 const domeShader = await new DomeShader().init();
 
 const planetObj = new THREE.Mesh(planetGeometry, planetShader.material);
-const terrainGeometry = await createTerrain(scene);
+let terrainGeometry = await createTerrain(
+	scene,
+	terrainShader.uniforms.SEED.value,
+);
 
 const terrainMesh = new THREE.Mesh(terrainGeometry, terrainShader.material);
 terrainMesh.castShadow = true;
@@ -127,7 +130,7 @@ function calculateLightDir() {
 
 const clock = new THREE.Clock();
 
-let paused = true;
+let paused = false;
 
 function toggleScene() {
 	isSpaceView = !isSpaceView;
@@ -204,6 +207,28 @@ export function setPlanet(planet) {
 	u.SEED.value = planet.seed;
 }
 
+export function setTerrain(planet) {
+	const u = terrainShader.uniforms;
+
+	u.hasWater.value = planet.hasWater;
+	u.hasAtmosphere.value = planet.hasAtmosphere;
+
+	u.ATMOSPHERE_COLOR.value = planet.atmosphereColor.clone();
+	u.GROUND_COLOR.value = planet.groundColor.clone();
+
+	u.SEED.value = planet.seed;
+}
+
+export function setSky(planet) {
+	const u = skyShader.uniforms;
+
+	u.ATMOSPHERE_COLOR.value = planet.atmosphereColor.clone();
+
+	u.hasAtmosphere.value = planet.hasAtmosphere;
+	u.hasWater.value = planet.hasWater;
+	u.SEED.value = planet.seed;
+}
+
 const fieldWidth = 10 * 3;
 const fieldHeight = fieldWidth;
 
@@ -266,7 +291,7 @@ window.addEventListener('keydown', async (e) => {
 	if (e.key == 't') toggleScene();
 
 	if (e.key == 'r') {
-		setPlanet({
+		const newPlanet = {
 			hasWater: Math.random() > 0.3,
 			hasAtmosphere: Math.random() > 0.2,
 			isGasGiant: Math.random() > 0.8,
@@ -291,7 +316,17 @@ window.addEventListener('keydown', async (e) => {
 				Math.random(),
 			),
 			seed: Math.random() * 999,
-		});
+		};
+
+		setPlanet(newPlanet);
+		setTerrain(newPlanet);
+		setSky(newPlanet);
+
+		terrainShader.uniforms.SEED.value = planetShader.uniforms.SEED.value;
+		terrainMesh.geometry = await createTerrain(
+			scene,
+			terrainShader.uniforms.SEED.value,
+		);
 
 		planetShader.uniforms.lightDir.value = calculateLightDir();
 		terrainShader.uniforms.lightDir.value = calculateLightDir();

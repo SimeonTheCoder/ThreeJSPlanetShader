@@ -9,7 +9,7 @@ export class TerrainShader {
 			hasAtmosphere: { value: Math.random() > 0.2 },
 			// GROUND_COLOR: { value: new THREE.Vector3(0.0, 1.0, 0.0) },
 			// WATER_COLOR: { value: new THREE.Vector3(0.0, 0.5, 1.0) },
-			// ATMOSPHERE_COLOR: { value: new THREE.Vector3(0.85, 0.85, 1.0) },
+			ATMOSPHERE_COLOR: { value: new THREE.Vector3(0.85, 0.85, 1.0) },
 			GROUND_COLOR: {
 				value: new THREE.Vector3(
 					Math.random(),

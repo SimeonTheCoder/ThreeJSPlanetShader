@@ -29,9 +29,12 @@ export class SkyShader {
 			perlinNoiseTex: { value: textures.perlinNoiseTex },
 			lightDir: { value: new THREE.Vector3(1, 0, 0) },
 			hasAtmosphere: { value: Math.random() > 0.2 },
+			hasWater: { value: Math.random() > 0.5 },
 			SEED: { value: Math.random() * 999 },
 			starPos: { value: stars },
 			time: { value: 0 },
+			ATMOSPHERE_COLOR: { value: new THREE.Vector3(0, 0.5, 1) },
+			// ATMOSPHERE_COLOR: { value: new THREE.Vector3(1, 0, 0) },
 		};
 
 		this.material = new THREE.ShaderMaterial({

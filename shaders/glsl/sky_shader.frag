@@ -8,7 +8,7 @@ uniform vec3 starPos[200];
 uniform bool hasWater;
 uniform bool hasAtmosphere;
 
-uniform vec3 GROUND_COLOR;
+uniform vec3 ATMOSPHERE_COLOR;
 
 uniform float SEED;
 uniform float time;
@@ -143,6 +143,13 @@ vec3 renderClouds(vec3 pixelColor, vec3 skyColor, float sun) {
 }
 
 void main() {
+    float stars = renderStars();
+
+    if (!hasAtmosphere) {
+        gl_FragColor = vec4(vec3(stars), 1.0);
+        return;
+    }
+
     float toSunDot = dot(vNormal, lightDir);
 
     float sun = pow(max(0.0, toSunDot), 5.0);
@@ -152,13 +159,13 @@ void main() {
     float longDay = max(0.0, (dot(lightDir, vec3(0.0, 1.0, 0.0)) + 1.0) / 2.0);
 
     float sunsetMask = sun * (1.0 - haze) * (1.0 - day) * 1.0;
-    vec3 sunsetColor = mix(vec3(1.0, 0.5, 0.2), vec3(1.0, 0.1, 0.0), pow(min(1.0, max(0.0, (0.2 - day) * 5.0)), 2.0));
+    vec3 sunsetColor = mix(normalize(vec3(1.0) - ATMOSPHERE_COLOR), normalize(max(vec3(0.0), vec3(1.0, 0.1, 0.0) - ATMOSPHERE_COLOR * 3.0)), pow(min(1.0, max(0.0, (0.2 - day) * 5.0)), 2.0));
 
-    vec3 dayColor = mix(mix(vec3(1.0, 0.4, 0.4), vec3(0.2, 0.4, 1.0), day), vec3(0.6, 0.6, 1.0), haze) * longDay * 1.5;
+    vec3 dayColor = mix(mix(normalize(vec3(1.0) - ATMOSPHERE_COLOR), ATMOSPHERE_COLOR, day), ATMOSPHERE_COLOR, haze) * longDay * 1.5;
     vec3 skyColor = mix(dayColor, sunsetColor, sunsetMask);
 
     //Stars, Sun and Moon
-    float stars = renderStars();
+
     float starsTerm = pow(1.0 - longDay, 2.0) * stars;
 
     float sunShape = pow(max(0.0, toSunDot), 1000.0);
@@ -171,7 +178,9 @@ void main() {
     vec3 pixelColor = skyColor + sunShapeFinal * sunColor + moonShapeFinal + starsTerm;
 
     //Clouds
-    pixelColor = renderClouds(pixelColor, skyColor, sun);
+    if (hasWater) {
+        pixelColor = renderClouds(pixelColor, skyColor, sun);
+    }
 
     //Tonemapping
     float exposure = 1.0;

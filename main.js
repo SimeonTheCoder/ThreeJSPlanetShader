@@ -166,6 +166,13 @@ export default async function renderCity(matrix, colors) {
 
 					section.position.set(x, floor * buildingHeight, z);
 
+					// if (Math.random() > 0.5)
+					// 	section.scale.set(
+					// 		section.scale.x * 2,
+					// 		section.scale.y * 1,
+					// 		section.scale.z * 2,
+					// 	);
+
 					scene.push(section);
 				}
 			}

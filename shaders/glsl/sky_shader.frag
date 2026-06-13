@@ -159,9 +159,9 @@ void main() {
     float longDay = max(0.0, (dot(lightDir, vec3(0.0, 1.0, 0.0)) + 1.0) / 2.0);
 
     float sunsetMask = sun * (1.0 - haze) * (1.0 - day) * 1.0;
-    vec3 sunsetColor = mix(normalize(vec3(1.0) - ATMOSPHERE_COLOR), normalize(max(vec3(0.0), vec3(1.0, 0.1, 0.0) - ATMOSPHERE_COLOR * 3.0)), pow(min(1.0, max(0.0, (0.2 - day) * 5.0)), 2.0));
+    vec3 sunsetColor = mix(max(vec3(0.0), vec3(1.0) - ATMOSPHERE_COLOR), max(vec3(0.0), vec3(1.0, 0.1, 0.0) - ATMOSPHERE_COLOR * 3.0), pow(min(1.0, max(0.0, (0.2 - day) * 5.0)), 2.0));
 
-    vec3 dayColor = mix(mix(normalize(vec3(1.0) - ATMOSPHERE_COLOR), ATMOSPHERE_COLOR, day), ATMOSPHERE_COLOR, haze) * longDay * 1.5;
+    vec3 dayColor = mix(mix(max(vec3(0.0), vec3(1.0) - ATMOSPHERE_COLOR), ATMOSPHERE_COLOR, day), ATMOSPHERE_COLOR, haze) * longDay * 1.5;
     vec3 skyColor = mix(dayColor, sunsetColor, sunsetMask);
 
     //Stars, Sun and Moon

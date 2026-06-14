@@ -144,6 +144,8 @@ vec3 applyLighting(vec3 color, vec3 normal, float steepness) {
     float lightAmount = max(dot(lightDir, normal), 0.0) * 1.0 * dayFactor;
     float ambientAmount = max(0.0, dot(vec3(0.0, 1.0, 0.0), normal)) * 1.0 * dayFactor * steepness;
 
+    if (!hasAtmosphere) ambientAmount = 0.0;
+
     vec3 lightColor = vec3(lightAmount) * vec3(1.0, 0.7, 0.5) + vec3(ambientAmount) * calculateSkyColor();
 
     return color * lightColor;
@@ -172,9 +174,12 @@ void main() {
     float depth = length(vPos - cameraPos) / 700.0;
     float fog = min(1.0, exp(depth) - 1.0);
 
+    if (!hasAtmosphere) fog = 0.0;
+
     vec3 pixelColor = mix(groundColor, calculateSkyColor() * 0.7, fog);
 
     float exposure = 1.0;
     // gl_FragColor = vec4(vec3(fog), 1.0);
+    // gl_FragColor = vec4(tonemapper(calculateSkyColor()), 1.0);
     gl_FragColor = vec4(tonemapper(pixelColor * exposure), 1.0);
 }

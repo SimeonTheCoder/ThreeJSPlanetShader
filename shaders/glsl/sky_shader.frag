@@ -17,8 +17,6 @@ varying vec2 vUv;
 varying vec3 vNormal;
 varying vec3 vPos;
 
-float cloudSpeed = 0.1;
-
 //Narkowicz ACES
 
 vec3 aces(vec3 x) {
@@ -39,6 +37,10 @@ float random (vec2 st) {
     return fract(sin(dot(st.xy,
                          vec2(12.9898,78.233)))*
         43758.5453123);
+}
+
+float getCloudSpeed() {
+    return pow(random(vec2(SEED, -3.0)), 30.0) * 1.0;
 }
 
 vec2 randomGradient (vec2 st) {
@@ -66,6 +68,8 @@ float h(float i) {
 }
 
 float generateClouds(vec2 uv) {
+    float cloudSpeed = getCloudSpeed();
+
     float cloudNoise1 = octavePerlin(1.0 * vUv + vec2(10.0, 0.0) + time * cloudSpeed / 1.0);
     float cloudNoise2 = octavePerlin(1.0 * vUv + vec2(10.0, 0.0) + time * cloudSpeed / 1.0);
 
@@ -95,6 +99,8 @@ float renderStars() {
 }
 
 vec3 renderClouds(vec3 pixelColor, vec3 skyColor, float sun) {
+    float cloudSpeed = getCloudSpeed();
+
     float cloudinessBias = -0.1;
 
     vec3 stereographicProjection = vNormal / vNormal.y  - vec3(0.0, 1.0, 0.0);

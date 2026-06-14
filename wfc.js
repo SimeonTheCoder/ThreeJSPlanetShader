@@ -1,3 +1,5 @@
+import { random, randomWithSeed } from './random.js';
+
 function generateRules(modules) {
 	for (let module of modules) {
 		const left = [];
@@ -102,13 +104,15 @@ function isDone(field) {
 	return true;
 }
 
-function chooseState(options, modules) {
+function chooseState(options, modules, density, seed) {
 	let sum = 0;
 
 	for (let i = 0; i < options.length; i++)
-		sum += modules[options[i]].weight ? modules[options[i]].weight : 1;
+		sum += modules[options[i]].weight
+			? modules[options[i]].weight * (i == 0 ? density : 1)
+			: 1;
 
-	const pick = Math.floor(Math.random() * sum);
+	const pick = Math.floor(randomWithSeed(seed) * sum);
 
 	let choice = 0;
 
@@ -127,7 +131,8 @@ export function generateField(
 	cellsY,
 	modules,
 	setupFunction,
-	buildingsCount,
+	density,
+	seed,
 ) {
 	generateRules(modules);
 
@@ -162,7 +167,12 @@ export function generateField(
 	while (steps++ < ((cellsX / 3) * cellsY) / 3 + 5 && !isDone(field)) {
 		const [leastY, leastX] = findLeastEntropy(field, options);
 
-		const pick = chooseState(options[leastY][leastX], modules);
+		const pick = chooseState(
+			options[leastY][leastX],
+			modules,
+			density,
+			seed,
+		);
 
 		field[leastY][leastX] = options[leastY][leastX][pick];
 		options[leastY][leastX] = [];
@@ -177,17 +187,7 @@ export function generateField(
 
 		for (let j = 0; j < cellsX; j++) {
 			const module = field[Math.floor(i / 3)][Math.floor(j / 3)];
-
 			const curr = modules[module].data[i % 3][j % 3];
-
-			if (curr == 0 && module != 0) {
-				resultCurrRow.push(
-					Math.floor(Math.random() * buildingsCount) + 2,
-				);
-
-				continue;
-			}
-
 			resultCurrRow.push(curr);
 		}
 

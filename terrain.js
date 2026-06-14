@@ -16,7 +16,7 @@ export async function createTerrain(scene, seed) {
 	// scene.clear();
 	console.log(seed);
 
-	const geometry = new THREE.PlaneGeometry(500, 500, 250, 250);
+	const geometry = new THREE.PlaneGeometry(1000, 1000, 250, 250);
 	geometry.rotateX(-Math.PI / 2);
 
 	const positions = geometry.attributes.position;
@@ -33,7 +33,7 @@ export async function createTerrain(scene, seed) {
 
 		const craterCoefficient = Math.max(
 			0,
-			Math.min(1, (x * scale) ** 4 + (z * scale) ** 4),
+			Math.min(1, (x * scale * 0.5) ** 4 + (z * scale * 0.5) ** 8),
 		);
 
 		h = h * craterCoefficient * 2 + 0 * (1 - craterCoefficient);

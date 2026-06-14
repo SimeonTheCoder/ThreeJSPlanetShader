@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 
+import { random } from '../random.js';
+
 export class SkyShader {
 	constructor(textures) {
 		function t(t) {
@@ -9,8 +11,8 @@ export class SkyShader {
 		const stars = [];
 
 		for (let i = 0; i < 200; i++) {
-			const ta = Math.random();
-			const tb = Math.random();
+			const ta = random();
+			const tb = random();
 
 			const angleA = ta * 6.28;
 			const angleB = tb * 3.14;
@@ -28,9 +30,9 @@ export class SkyShader {
 		this.uniforms = {
 			perlinNoiseTex: { value: textures.perlinNoiseTex },
 			lightDir: { value: new THREE.Vector3(1, 0, 0) },
-			hasAtmosphere: { value: Math.random() > 0.2 },
-			hasWater: { value: Math.random() > 0.5 },
-			SEED: { value: Math.random() * 999 },
+			hasAtmosphere: { value: random() > 0.2 },
+			hasWater: { value: random() > 0.5 },
+			SEED: { value: random() * 999 },
 			starPos: { value: stars },
 			time: { value: 0 },
 			ATMOSPHERE_COLOR: { value: new THREE.Vector3(0, 0.5, 1) },
